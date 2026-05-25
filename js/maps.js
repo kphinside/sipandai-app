@@ -1,7 +1,16 @@
 /**
  * js/maps.js
  * Inisialisasi Peta Leaflet dengan Fokus Wilayah Kabupaten Kepahiang
+ * ✅ Sudah include RISK_COLORS & semua dependency
  */
+
+// 🎨 Warna Risiko (WAJIB: definisikan sebelum dipakai)
+const RISK_COLORS = {
+  'Kritis': '#991b1b',
+  'Tinggi': '#dc2626',
+  'Sedang': '#eab308',
+  'Rendah': '#22c55e'
+};
 
 // 🌍 Konfigurasi Peta (DIKUNCI untuk Kepahiang)
 const MAP_CONFIG = {
@@ -20,17 +29,17 @@ const MAP_CONFIG = {
 
 let map, zonesLayer, markersLayer;
 
-//  Inisialisasi Peta
+// 🚀 Inisialisasi Peta
 function initMap() {
   map = L.map('map', {
     center: MAP_CONFIG.center,
     zoom: MAP_CONFIG.zoom,
     minZoom: MAP_CONFIG.minZoom,
     maxZoom: MAP_CONFIG.maxZoom,
-    maxBounds: MAP_CONFIG.bounds,      //  Kunci area pandang
+    maxBounds: MAP_CONFIG.bounds,      // 🔒 Kunci area pandang
     maxBoundsViscosity: 1.0,           // Mencegah "membal" keluar batas
     zoomControl: false,
-    zoomSnap: 0.5,                     // Zoom lebih halus
+    zoomSnap: 0.5,
     zoomDelta: 0.5
   });
 
@@ -47,18 +56,18 @@ function initMap() {
   zonesLayer = L.featureGroup().addTo(map);
   markersLayer = L.featureGroup().addTo(map);
 
-  // Load Mock Data (ganti dengan Supabase fetch nanti)
+  // Load Mock Data
   loadMockZones();
   loadMockMarkers();
   
-  // Fit bounds jika ada data, tetap dalam batas Kepahiang
+  // Fit bounds jika ada data
   if (zonesLayer.getLayers().length > 0 || markersLayer.getLayers().length > 0) {
     const group = L.featureGroup([...zonesLayer.getLayers(), ...markersLayer.getLayers()]);
     map.fitBounds(group.getBounds().pad(0.1));
   }
 }
 
-// 🟥🟨🟩 Mock Data Zona (Disesuaikan koordinat Kepahiang)
+// 🟥🟨🟩 Mock Data Zona (Koordinat dalam batas Kepahiang)
 function loadMockZones() {
   const mockZones = [
     { name: "Zona Kritis - Kepahiang Kota", coords: [[-3.66,102.55],[-3.66,102.58],[-3.64,102.58],[-3.64,102.55]], risk: "Kritis" },
@@ -79,7 +88,7 @@ function loadMockZones() {
   });
 }
 
-//  Mock Data Marker Laporan (Koordinat dalam batas Kepahiang)
+// 📍 Mock Data Marker Laporan
 function loadMockMarkers() {
   const mockReports = [
     { id: 1, title: "Konflik Lahan Desa X", lat: -3.652, lng: 102.565, risk: "Tinggi", category: "Ekonomi", desc: "Sengketa batas lahan antar warga." },
@@ -96,6 +105,10 @@ function loadMockMarkers() {
       opacity: 1,
       fillOpacity: 0.9
     }).addTo(markersLayer);
+
+    // Simpan data di options untuk filter
+    marker.options.risk = report.risk;
+    marker.options.category = report.category;
 
     marker.bindPopup(`
       <div class="popup-title">${report.title}</div>
@@ -121,7 +134,7 @@ function applyFilters() {
   });
 }
 
-//  Modal Detail Peta
+// 📖 Modal Detail Peta
 function openMapModal(data) {
   document.getElementById('modalTitle').textContent = data.title;
   document.getElementById('modalBody').innerHTML = `
@@ -155,7 +168,12 @@ function locateUser() {
           color: '#1e40af', fillColor: '#3b82f6', fillOpacity: 0.5, radius: 50
         }).addTo(map).bindPopup("📍 Lokasi Anda").openPopup();
       } else {
-        window.app.showToast('⚠️ Lokasi Anda di luar wilayah Kabupaten Kepahiang', 'warning');
+        // Cek apakah window.app tersedia sebelum showToast
+        if (window.app?.showToast) {
+          window.app.showToast('⚠️ Lokasi Anda di luar wilayah Kabupaten Kepahiang', 'warning');
+        } else {
+          alert('⚠️ Lokasi Anda di luar wilayah Kabupaten Kepahiang');
+        }
         map.setView(MAP_CONFIG.center, MAP_CONFIG.zoom);
       }
     },
@@ -165,23 +183,26 @@ function locateUser() {
 
 // 🔄 Event Listeners UI
 document.addEventListener('DOMContentLoaded', () => {
-  initMap();
+  // Pastikan elemen #map ada sebelum inisialisasi peta
+  if (document.getElementById('map')) {
+    initMap();
+  }
 
   // Toggle Sidebar
   document.getElementById('toggleSidebar')?.addEventListener('click', () => {
-    document.querySelector('.sidebar').classList.toggle('open');
+    document.querySelector('.sidebar')?.classList.toggle('open');
   });
 
   // Filter Panel
   document.getElementById('btnToggleFilters')?.addEventListener('click', () => {
-    document.getElementById('filterPanel').classList.toggle('open');
+    document.getElementById('filterPanel')?.classList.toggle('open');
   });
   document.getElementById('closeFilterPanel')?.addEventListener('click', () => {
-    document.getElementById('filterPanel').classList.remove('open');
+    document.getElementById('filterPanel')?.classList.remove('open');
   });
   document.getElementById('applyFilters')?.addEventListener('click', () => {
     applyFilters();
-    document.getElementById('filterPanel').classList.remove('open');
+    document.getElementById('filterPanel')?.classList.remove('open');
   });
 
   // Geolocation
@@ -189,12 +210,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Reset View
   document.getElementById('btnResetView')?.addEventListener('click', () => {
-    map.setView(MAP_CONFIG.center, MAP_CONFIG.zoom);
+    if (map) map.setView(MAP_CONFIG.center, MAP_CONFIG.zoom);
   });
 
   // Modal Close
   document.getElementById('closeMapModal')?.addEventListener('click', () => {
-    document.getElementById('mapDetailModal').classList.add('d-none');
+    document.getElementById('mapDetailModal')?.classList.add('d-none');
   });
   document.getElementById('btnPrintModal')?.addEventListener('click', () => window.print());
 
