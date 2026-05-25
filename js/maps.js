@@ -1,41 +1,46 @@
 /**
  * js/maps.js
- * Inisialisasi Peta Leaflet, Layer Zona Risiko, Marker Laporan, & Filter Interaktif
- * Siap diintegrasikan dengan Supabase (query konflik & zones nanti)
+ * Inisialisasi Peta Leaflet dengan Fokus Wilayah Kabupaten Kepahiang
  */
 
-// 🌍 Konfigurasi Peta
+// 🌍 Konfigurasi Peta (DIKUNCI untuk Kepahiang)
 const MAP_CONFIG = {
-  center: [-3.658, 102.568], // Pusat Kabupaten Kepahiang
-  zoom: 11,
+  center: [-3.650, 102.565], // Pusat geografis Kab. Kepahiang
+  zoom: 10,
+  minZoom: 9,                // Mencegah zoom out terlalu jauh
+  maxZoom: 16,               // Maksimal zoom detail
+  // Batas wilayah: [SouthWest [lat, lng], NorthEast [lat, lng]]
+  bounds: [
+    [-3.790, 102.380], // Barat Daya (perbatasan Rejang Lebong/Bengkulu Selatan)
+    [-3.510, 102.750]  // Timur Laut (perbatasan Bengkulu Tengah)
+  ],
   tileLayer: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-};
-
-// 🎨 Warna Zona Risiko
-const RISK_COLORS = {
-  'Kritis': '#991b1b',
-  'Tinggi': '#dc2626',
-  'Sedang': '#eab308',
-  'Rendah': '#22c55e'
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | SIPANDAI Kepahiang'
 };
 
 let map, zonesLayer, markersLayer;
 
-// 🚀 Inisialisasi Peta
+//  Inisialisasi Peta
 function initMap() {
   map = L.map('map', {
     center: MAP_CONFIG.center,
     zoom: MAP_CONFIG.zoom,
-    zoomControl: false // Pindahkan ke kanan bawah
+    minZoom: MAP_CONFIG.minZoom,
+    maxZoom: MAP_CONFIG.maxZoom,
+    maxBounds: MAP_CONFIG.bounds,      //  Kunci area pandang
+    maxBoundsViscosity: 1.0,           // Mencegah "membal" keluar batas
+    zoomControl: false,
+    zoomSnap: 0.5,                     // Zoom lebih halus
+    zoomDelta: 0.5
   });
 
+  // Pindahkan kontrol zoom ke kanan bawah
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
   // Base Layer
   L.tileLayer(MAP_CONFIG.tileLayer, {
     attribution: MAP_CONFIG.attribution,
-    maxZoom: 18
+    maxZoom: MAP_CONFIG.maxZoom
   }).addTo(map);
 
   // Layer Groups
@@ -46,19 +51,19 @@ function initMap() {
   loadMockZones();
   loadMockMarkers();
   
-  // Fit bounds jika ada data
+  // Fit bounds jika ada data, tetap dalam batas Kepahiang
   if (zonesLayer.getLayers().length > 0 || markersLayer.getLayers().length > 0) {
     const group = L.featureGroup([...zonesLayer.getLayers(), ...markersLayer.getLayers()]);
-    map.fitBounds(group.getBounds(), { padding: [50, 50] });
+    map.fitBounds(group.getBounds().pad(0.1));
   }
 }
 
-// 🟥🟨🟩 Mock Data Zona (Polygon GeoJSON sederhana)
+// 🟥🟨🟩 Mock Data Zona (Disesuaikan koordinat Kepahiang)
 function loadMockZones() {
   const mockZones = [
-    { name: "Zona Kritis - Kepahiang Kota", coords: [[-3.64,102.55],[-3.64,102.58],[-3.66,102.58],[-3.66,102.55]], risk: "Kritis" },
-    { name: "Zona Sedang - Bermani Ilir", coords: [[-3.68,102.52],[-3.68,102.56],[-3.71,102.56],[-3.71,102.52]], risk: "Sedang" },
-    { name: "Zona Rendah - Merigi", coords: [[-3.62,102.48],[-3.62,102.52],[-3.65,102.52],[-3.65,102.48]], risk: "Rendah" }
+    { name: "Zona Kritis - Kepahiang Kota", coords: [[-3.66,102.55],[-3.66,102.58],[-3.64,102.58],[-3.64,102.55]], risk: "Kritis" },
+    { name: "Zona Sedang - Bermani Ilir", coords: [[-3.70,102.52],[-3.70,102.56],[-3.68,102.56],[-3.68,102.52]], risk: "Sedang" },
+    { name: "Zona Rendah - Muara Kemumu", coords: [[-3.62,102.48],[-3.62,102.52],[-3.60,102.52],[-3.60,102.48]], risk: "Rendah" }
   ];
 
   mockZones.forEach(zone => {
@@ -74,7 +79,7 @@ function loadMockZones() {
   });
 }
 
-// 📍 Mock Data Marker Laporan
+//  Mock Data Marker Laporan (Koordinat dalam batas Kepahiang)
 function loadMockMarkers() {
   const mockReports = [
     { id: 1, title: "Konflik Lahan Desa X", lat: -3.652, lng: 102.565, risk: "Tinggi", category: "Ekonomi", desc: "Sengketa batas lahan antar warga." },
@@ -92,14 +97,12 @@ function loadMockMarkers() {
       fillOpacity: 0.9
     }).addTo(markersLayer);
 
-    // Custom Popup
     marker.bindPopup(`
       <div class="popup-title">${report.title}</div>
       <div>Kategori: ${report.category}</div>
       <span class="popup-risk" style="background:${RISK_COLORS[report.risk]};color:#fff">${report.risk}</span>
     `);
 
-    // Click event buka modal detail
     marker.on('click', () => openMapModal(report));
   });
 }
@@ -110,21 +113,15 @@ function applyFilters() {
   const selectedCats = Array.from(document.querySelectorAll('.filter-cat:checked')).map(cb => cb.value);
 
   markersLayer.eachLayer(marker => {
-    const data = marker.options.data || {}; // Simpan data di options nanti
     const risk = marker.options.risk || 'Sedang';
     const cat = marker.options.category || 'Lainnya';
-    
     const show = selectedRisks.includes(risk) && selectedCats.includes(cat);
     if (show) marker.addTo(map);
     else map.removeLayer(marker);
   });
-
-  zonesLayer.eachLayer(poly => {
-    // Logic filter zona bisa ditambahkan serupa
-  });
 }
 
-// 📖 Modal Detail Peta
+//  Modal Detail Peta
 function openMapModal(data) {
   document.getElementById('modalTitle').textContent = data.title;
   document.getElementById('modalBody').innerHTML = `
@@ -138,7 +135,7 @@ function openMapModal(data) {
   document.getElementById('mapDetailModal').classList.remove('d-none');
 }
 
-// 📍 Geolocation
+// 📍 Geolocation (Dibatasi agar tidak error jika di luar Kepahiang)
 function locateUser() {
   if (!navigator.geolocation) {
     alert("Geolocation tidak didukung browser Anda.");
@@ -147,10 +144,20 @@ function locateUser() {
   navigator.geolocation.getCurrentPosition(
     pos => {
       const { latitude, longitude } = pos.coords;
-      map.setView([latitude, longitude], 14);
-      L.circle([latitude, longitude], {
-        color: '#1e40af', fillColor: '#3b82f6', fillOpacity: 0.5, radius: 50
-      }).addTo(map).bindPopup("📍 Lokasi Anda").openPopup();
+      
+      // Cek apakah lokasi user masih dalam batas Kepahiang
+      const inBounds = latitude >= MAP_CONFIG.bounds[0][0] && latitude <= MAP_CONFIG.bounds[1][0] &&
+                       longitude >= MAP_CONFIG.bounds[0][1] && longitude <= MAP_CONFIG.bounds[1][1];
+      
+      if (inBounds) {
+        map.setView([latitude, longitude], 13);
+        L.circle([latitude, longitude], {
+          color: '#1e40af', fillColor: '#3b82f6', fillOpacity: 0.5, radius: 50
+        }).addTo(map).bindPopup("📍 Lokasi Anda").openPopup();
+      } else {
+        window.app.showToast('⚠️ Lokasi Anda di luar wilayah Kabupaten Kepahiang', 'warning');
+        map.setView(MAP_CONFIG.center, MAP_CONFIG.zoom);
+      }
     },
     () => alert("Gagal mendapatkan lokasi. Pastikan izin GPS aktif.")
   );
@@ -160,7 +167,7 @@ function locateUser() {
 document.addEventListener('DOMContentLoaded', () => {
   initMap();
 
-  // Toggle Sidebar (reused dari app.js/dashboard)
+  // Toggle Sidebar
   document.getElementById('toggleSidebar')?.addEventListener('click', () => {
     document.querySelector('.sidebar').classList.toggle('open');
   });
@@ -191,26 +198,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('btnPrintModal')?.addEventListener('click', () => window.print());
 
-  // Logout (placeholder)
+  // Logout
   document.getElementById('btnLogout')?.addEventListener('click', () => {
     window.location.href = 'login.html';
   });
 });
-
-// 📌 Catatan Integrasi Supabase Nanti:
-/*
-async function fetchConflictReports() {
-  const { data, error } = await window.sbClient
-    .from('conflict_reports')
-    .select('id, judul, kategori, tingkat_risiko, lokasi_lat, lokasi_lng, deskripsi, created_at')
-    .eq('status', 'baru'); // atau filter lain
-
-  if (error) return console.error(error);
-  
-  // Bersihkan marker lama, render ulang dari 'data'
-  markersLayer.clearLayers();
-  data.forEach(report => {
-    // Buat marker + bind popup + event click
-  });
-}
-*/
