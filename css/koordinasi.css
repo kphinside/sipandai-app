@@ -1,0 +1,65 @@
+/* ===== KOORDINASI PAGE STYLES ===== */
+.forum-list { display: flex; flex-direction: column; gap: 1rem; max-height: 400px; overflow-y: auto; }
+
+.forum-thread {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.thread-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.thread-title { font-weight: 600; color: var(--dark); }
+.thread-meta { font-size: 0.8rem; color: var(--gray); }
+.thread-content { color: var(--dark); font-size: 0.9rem; line-height: 1.5; margin-bottom: 0.5rem; }
+.thread-actions { display: flex; gap: 0.5rem; }
+.thread-btn { background: none; border: none; color: var(--primary); font-size: 0.85rem; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 4px; }
+.thread-btn:hover { background: #e2e8f0; }
+.thread-tag { background: #dbeafe; color: #1e40af; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.75rem; }
+
+/* Tracking Table */
+.tracking-card { margin-top: 1rem; }
+.status-pending { background: #fef3c7; color: #b45309; }
+.status-progress { background: #dbeafe; color: #1e40af; }
+.status-done { background: #dcfce7; color: #166534; }
+
+/* Stakeholder Grid */
+.stakeholder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.stakeholder-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.stakeholder-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  margin: 0 auto 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.stakeholder-name { font-weight: 600; margin-bottom: 0.25rem; }
+.stakeholder-role { font-size: 0.85rem; color: var(--gray); margin-bottom: 0.75rem; }
+.stakeholder-contact { font-size: 0.8rem; color: var(--primary); }
+
+/* Modal */
+.form-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
+@media (max-width: 768px) {
+  .forum-list { max-height: 300px; }
+  .stakeholder-grid { grid-template-columns: 1fr; }
+  .tracking-card { overflow-x: auto; }
+}
