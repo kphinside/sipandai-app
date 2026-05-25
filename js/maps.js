@@ -21,7 +21,7 @@ const MAP_CONFIG = {
   // 🔒 Batas: [South-West [minLat, minLng], North-East [maxLat, maxLng]]
   bounds: [
     [-3.798060, 102.443051], // Bawah-Kiri (Selatan-Barat)
-    [-3.497891, 102.808862]  // Atas-Kanan (Utara-Timur)
+    [-3.544325, 102.665886]  // Atas-Kanan (Utara-Timur)
   ],
   tileLayer: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   attribution: '&copy; OpenStreetMap • SIPANDAI Kepahiang'
@@ -122,8 +122,8 @@ const mockReports = [
   { 
     id: 2, 
     title: "Protes Pembangunan Jalan", 
-    lat: -3.625, 
-    lng: 102.578, 
+    lat: -3.671689, 
+    lng: 102.632107, 
     risk: "Sedang", 
     category: "Politik", 
     desc: "Masyarakat menuntut transparansi anggaran pembangunan jalan di Kecamatan Tebat Karai.",
@@ -132,8 +132,8 @@ const mockReports = [
   { 
     id: 3, 
     title: "Potensi Konflik Antar Kampung", 
-    lat: -3.685, 
-    lng: 102.525, 
+    lat: -3.689175, 
+    lng: 102.717906, 
     risk: "Kritis", 
     category: "SARA", 
     desc: "Tensi meningkat akibat isu hoaks yang tersebar di media sosial, Kecamatan Bermani Ilir.",
@@ -142,8 +142,8 @@ const mockReports = [
   { 
     id: 4, 
     title: "Sengketa Sumber Daya Air", 
-    lat: -3.638, 
-    lng: 102.595, 
+    lat: -3.499904, 
+    lng: 102.515104,
     risk: "Sedang", 
     category: "Ekonomi", 
     desc: "Konflik pembagian irigasi antara petani hulu dan hilir di Kecamatan Merigi.",
@@ -152,8 +152,8 @@ const mockReports = [
   { 
     id: 5, 
     title: "Demonstrasi Tuntutan Layanan", 
-    lat: -3.705, 
-    lng: 102.548, 
+    lat: -3.599833,
+    lng: 102.615729, 
     risk: "Rendah", 
     category: "Politik", 
     desc: "Warga Kecamatan Kabawetan menuntut perbaikan layanan kesehatan puskesmas.",
