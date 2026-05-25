@@ -58,14 +58,15 @@
     </header>
 
     <!-- Map Container -->
-    <div id="map" class="map-container"></div>
-
-    <!-- Map Controls -->
-    <div class="map-controls">
-      <button id="btnToggleFilters" class="control-btn" title="Filter">🔍 Filter</button>
-      <button id="btnLocateMe" class="control-btn" title="Lokasi Saya">📍 Lokasi Saya</button>
-      <button id="btnResetView" class="control-btn" title="Reset Tampilan">🔄 Reset</button>
-    </div>
+ <div id="map" class="map-container">
+  <!-- Controls HARUS di dalam sini agar CSS position:absolute bekerja sempurna -->
+  <div class="map-controls">
+    <button id="btnToggleFilters" class="control-btn" title="Filter">🔍</button>
+    <button id="btnLocateMe" class="control-btn" title="Lokasi Saya">📍</button>
+    <button id="btnResetView" class="control-btn" title="Reset Tampilan">🔄</button>
+  </div>
+  <!-- Legend & Filter Panel juga bisa diletakkan di sini atau di luar, CSS sudah mengikatnya -->
+</div>
 
     <!-- Filter Panel (Slide-over) -->
     <aside id="filterPanel" class="filter-panel d-none">
