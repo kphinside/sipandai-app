@@ -69,29 +69,54 @@
 </div>
 
     <!-- Filter Panel (Slide-over) -->
-    <aside id="filterPanel" class="filter-panel d-none">
-      <div class="panel-header">
-        <h3>🔍 Filter Peta</h3>
-        <button id="closeFilterPanel" class="panel-close">&times;</button>
-      </div>
-      <div class="panel-body">
-        <div class="filter-group">
-          <label>Tingkat Risiko</label>
-          <label class="checkbox-label"><input type="checkbox" class="filter-risk" value="Kritis" checked> 🚨 Kritis</label>
-          <label class="checkbox-label"><input type="checkbox" class="filter-risk" value="Tinggi" checked> 🔴 Tinggi</label>
-          <label class="checkbox-label"><input type="checkbox" class="filter-risk" value="Sedang" checked> 🟡 Sedang</label>
-          <label class="checkbox-label"><input type="checkbox" class="filter-risk" value="Rendah" checked> 🟢 Rendah</label>
-        </div>
-        <div class="filter-group">
-          <label>Kategori Konflik</label>
-          <label class="checkbox-label"><input type="checkbox" class="filter-cat" value="SARA" checked> SARA / Sosial</label>
-          <label class="checkbox-label"><input type="checkbox" class="filter-cat" value="Ekonomi" checked> Ekonomi / Agraria</label>
-          <label class="checkbox-label"><input type="checkbox" class="filter-cat" value="Politik" checked> Politik / Pilkada</label>
-          <label class="checkbox-label"><input type="checkbox" class="filter-cat" value="Bencana" checked> Bencana Alam</label>
-        </div>
-        <button id="applyFilters" class="btn-primary w-100">Terapkan Filter</button>
-      </div>
-    </aside>
+<!-- Filter Panel -->
+<aside id="filterPanel" class="filter-panel">
+  <div class="panel-header">
+    <h3>🔍 Filter Peta</h3>
+    <button id="closeFilterPanel" class="panel-close">&times;</button>
+  </div>
+  <div class="panel-body">
+    <div class="filter-group">
+      <label>Tingkat Risiko</label>
+      <label class="checkbox-label">
+        <input type="checkbox" class="filter-risk" value="Kritis" checked> 
+        🚨 Kritis
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" class="filter-risk" value="Tinggi" checked> 
+        🔴 Tinggi
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" class="filter-risk" value="Sedang" checked> 
+        🟡 Sedang
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" class="filter-risk" value="Rendah" checked> 
+        🟢 Rendah
+      </label>
+    </div>
+    <div class="filter-group">
+      <label>Kategori Konflik</label>
+      <label class="checkbox-label">
+        <input type="checkbox" class="filter-cat" value="SARA" checked> 
+        SARA / Sosial
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" class="filter-cat" value="Ekonomi" checked> 
+        Ekonomi / Agraria
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" class="filter-cat" value="Politik" checked> 
+        Politik / Pilkada
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" class="filter-cat" value="Bencana" checked> 
+        Bencana Alam
+      </label>
+    </div>
+    <button id="applyFilters" class="btn-primary w-100">Terapkan Filter</button>
+  </div>
+</aside>
 
     <!-- Map Legend -->
     <div class="map-legend">
