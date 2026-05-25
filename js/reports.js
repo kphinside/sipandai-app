@@ -114,65 +114,82 @@ function preloadUserData() {
   }
 }
 
-// Di js/reports.js - fungsi populateKecamatanDropdown()
-async function populateKecamatanDropdown() {
+// ==========================================
+// 📍 DROPDOWN CASCADING: KECAMATAN → DESA
+// ==========================================
+
+async function loadKecamatanDropdown() {
   const select = document.getElementById('laporanKecamatan');
-  if (!select) {
-    console.error('❌ Elemen #laporanKecamatan tidak ditemukan di DOM');
-    return;
-  }
-  
-  console.log('🔄 Memuat data kecamatan dari Supabase...');
-  
+  if (!select) return;
+
   try {
     const { data, error } = await window.sbClient
       .from('kecamatan')
       .select('id, nama')
       .order('nama');
     
-    if (error) {
-      console.error('❌ Error query kecamatan:', error);
-      throw error;
-    }
-    
-    console.log('✅ Data kecamatan diterima:', data);
-    
-    if (!data || data.length === 0) {
-      console.warn('⚠️ Tabel kecamatan kosong');
-      return;
-    }
-    
-    // Simpan opsi default
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = 'Pilih Kecamatan';
-    select.innerHTML = '';
-    select.appendChild(defaultOption);
-    
+    if (error) throw error;
+
+    select.innerHTML = '<option value="">Pilih Kecamatan *</option>';
     data.forEach(k => {
       const opt = document.createElement('option');
       opt.value = k.id;
       opt.textContent = k.nama;
       select.appendChild(opt);
     });
-    
-    console.log(`✅ ${data.length} kecamatan berhasil dimuat ke dropdown`);
-    
   } catch (err) {
     console.error('❌ Gagal load kecamatan:', err);
-    // Fallback: opsi hardcoded (jika emergency)
-    select.innerHTML = `
-      <option value="">Pilih Kecamatan</option>
-      <option value="8">Kepahiang</option>
-      <option value="9">Tebat Karai</option>
-      <option value="10">Merigi</option>
-      <option value="11">Kabawetan</option>
-      <option value="12">Muara Kemumu</option>
-      <option value="13">Bermani Ilir</option>
-      <option value="14">Seberang Musi</option>
-      <option value="15">Ujan Mas</option>
-    `;
+    window.app.showToast('Gagal memuat data kecamatan', 'error');
   }
+}
+
+async function loadDesaDropdown(kecamatanId) {
+  const selectDesa = document.getElementById('laporanDesa');
+  if (!selectDesa) return;
+
+  // Reset & tampilkan loading
+  selectDesa.innerHTML = '<option value="">Memuat desa...</option>';
+  selectDesa.disabled = true;
+
+  if (!kecamatanId) {
+    selectDesa.innerHTML = '<option value="">Pilih Kecamatan Dulu</option>';
+    return;
+  }
+
+  try {
+    const { data, error } = await window.sbClient
+      .from('desa')
+      .select('id, nama')
+      .eq('kecamatan_id', kecamatanId)
+      .order('nama');
+    
+    if (error) throw error;
+
+    selectDesa.innerHTML = '<option value="">Pilih Desa *</option>';
+    
+    if (data && data.length > 0) {
+      data.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.nama;
+        selectDesa.appendChild(opt);
+      });
+      selectDesa.disabled = false; // ✅ Aktifkan setelah data muncul
+    } else {
+      selectDesa.innerHTML = '<option value="">Tidak ada data desa</option>';
+    }
+  } catch (err) {
+    console.error('❌ Gagal load desa:', err);
+    selectDesa.innerHTML = '<option value="">Gagal memuat desa</option>';
+  }
+}
+
+// Setup Event Listener
+function setupDropdownListeners() {
+  const kecSelect = document.getElementById('laporanKecamatan');
+  kecSelect?.addEventListener('change', (e) => {
+    loadDesaDropdown(e.target.value);
+  });
 }
 
 // ==========================================
