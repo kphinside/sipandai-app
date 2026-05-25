@@ -72,39 +72,6 @@ function initMap() {
   }
 }
 
-// 🟥🟨🟩 Mock Data Zona (koordinat dalam batas Kepahiang)
-function loadMockZones() {
-  const mockZones = [
-    { 
-      name: "Zona Kritis - Kepahiang Kota", 
-      coords: [[-3.660,102.545],[-3.660,102.570],[-3.645,102.570],[-3.645,102.545]], 
-      risk: "Kritis" 
-    },
-    { 
-      name: "Zona Sedang - Bermani Ilir", 
-      coords: [[-3.720,102.530],[-3.720,102.560],[-3.700,102.560],[-3.700,102.530]], 
-      risk: "Sedang" 
-    },
-    { 
-      name: "Zona Rendah - Muara Kemumu", 
-      coords: [[-3.630,102.480],[-3.630,102.510],[-3.610,102.510],[-3.610,102.480]], 
-      risk: "Rendah" 
-    }
-  ];
-
-  mockZones.forEach(zone => {
-    const polygon = L.polygon(zone.coords, {
-      color: RISK_COLORS[zone.risk],
-      fillColor: RISK_COLORS[zone.risk],
-      fillOpacity: 0.20,
-      weight: 2,
-      dashArray: '5 5'
-    }).addTo(zonesLayer);
-
-    polygon.bindPopup(`<strong>${zone.name}</strong><br>Tingkat Risiko: ${zone.risk}`);
-  });
-}
-
 // 📍 Mock Data Marker (dalam batas Kepahiang)
 function loadMockMarkers() {
   //  Mock Data Marker (SEMUA DALAM BATAS KEPahiang)
