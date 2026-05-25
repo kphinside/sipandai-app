@@ -12,7 +12,8 @@ document.getElementById('togglePassword')?.addEventListener('click', function ()
 document.getElementById('formLogin')?.addEventListener('submit', async function (e) {
   e.preventDefault();
   
-  const email = document.getElementById('email').value.trim();
+  const usernameInput = document.getElementById('username').value.trim().toLowerCase().replace(/\s+/g, '_');
+const email = `${usernameInput}@sipandai.local`; // Format internal Supabase
   const password = document.getElementById('password').value;
   const btnSubmit = document.getElementById('btnSubmit');
   const btnText = btnSubmit.querySelector('.btn-text');
