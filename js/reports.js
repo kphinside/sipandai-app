@@ -114,7 +114,7 @@ function preloadUserData() {
   }
 }
 
-// Populate dropdown kecamatan dari tabel referensi
+// Di js/reports.js - fungsi populateKecamatanDropdown()
 async function populateKecamatanDropdown() {
   const select = document.getElementById('laporanKecamatan');
   if (!select) return;
@@ -128,9 +128,11 @@ async function populateKecamatanDropdown() {
     if (error) throw error;
     
     // Simpan opsi default
-    const defaultOption = select.querySelector('option[value=""]');
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Pilih Kecamatan';
     select.innerHTML = '';
-    if (defaultOption) select.appendChild(defaultOption);
+    select.appendChild(defaultOption);
     
     data.forEach(k => {
       const opt = document.createElement('option');
@@ -140,7 +142,7 @@ async function populateKecamatanDropdown() {
     });
   } catch (err) {
     console.warn('⚠️ Gagal load kecamatan:', err);
-    // Fallback: pakai opsi hardcoded di HTML
+    // Fallback: opsi hardcoded (jika emergency)
   }
 }
 
