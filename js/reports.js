@@ -300,7 +300,7 @@ function setupForm() {
     window.app.setLoading(btn, true);
 
     try {
-      // Validasi WAJIB
+      // Validasi WAJIB: Judul, Kecamatan, Desa
       const judul = document.getElementById('laporanJudul').value.trim();
       const kecamatan_id = document.getElementById('laporanKecamatan').value;
       const desa_id = document.getElementById('laporanDesa').value;
@@ -328,18 +328,18 @@ function setupForm() {
         foto_url = await uploadBukti(fileInput.files[0]);
       }
 
-      // Siapkan payload
+      // Siapkan payload dengan default value untuk optional fields
       const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
       const payload = {
         judul,
         deskripsi: document.getElementById('laporanDeskripsi').value.trim() || null,
-        kategori: document.getElementById('laporanKategori').value || 'Lainnya',
-        tingkat_risiko: document.getElementById('laporanRisiko').value || 'Sedang',
+        kategori: document.getElementById('laporanKategori').value || 'Lainnya', // Default: Lainnya
+        tingkat_risiko: document.getElementById('laporanRisiko').value || 'Sedang', // Default: Sedang
         lokasi_lat: parseFloat(document.getElementById('laporanLat').value) || null,
         lokasi_lng: parseFloat(document.getElementById('laporanLng').value) || null,
         alamat_lokasi: document.getElementById('laporanLokasi').value.trim() || null,
         kecamatan_id: parseInt(kecamatan_id),
-        desa_id: parseInt(desa_id),
+        desa_id: parseInt(desa_id), // ✅ Wajib dikirim
         foto_url,
         pelapor_id: user.id,
         status: 'baru'
@@ -360,8 +360,10 @@ function setupForm() {
         // Reset & refresh
         form.reset();
         document.getElementById('filePreview').innerHTML = '';
-        document.getElementById('laporanDesa').innerHTML = '<option value="">Pilih Kecamatan Dulu</option>';
-        document.getElementById('laporanDesa').disabled = true;
+        // Reset dropdown desa
+        const desaSelect = document.getElementById('laporanDesa');
+        desaSelect.innerHTML = '<option value="">Pilih Kecamatan Dulu</option>';
+        desaSelect.disabled = true;
         currentPage = 1;
         await fetchReports();
         
@@ -385,8 +387,9 @@ function setupForm() {
   document.getElementById('btnReset')?.addEventListener('click', () => {
     document.getElementById('formLaporan').reset();
     document.getElementById('filePreview').innerHTML = '';
-    document.getElementById('laporanDesa').innerHTML = '<option value="">Pilih Kecamatan Dulu</option>';
-    document.getElementById('laporanDesa').disabled = true;
+    const desaSelect = document.getElementById('laporanDesa');
+    desaSelect.innerHTML = '<option value="">Pilih Kecamatan Dulu</option>';
+    desaSelect.disabled = true;
   });
 }
 
