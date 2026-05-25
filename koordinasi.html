@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="robots" content="noindex, nofollow"/>
+  <title>Koordinasi Lintas Sektor - SIPANDAI Kepahiang</title>
+  
+  <link rel="icon" type="image/x-icon" href="assets/icons/favicon.ico">
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/koordinasi.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="dashboard-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <img src="assets/img/logo-kepahiang.png" alt="Logo">
+      <span>SIPANDAI</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+      <a href="laporan.html" class="nav-link">📝 Pelaporan</a>
+      <a href="peta.html" class="nav-link">🗺️ Peta Konflik</a>
+      <a href="koordinasi.html" class="nav-link active">🤝 Koordinasi</a>
+      <a href="profil.html" class="nav-link">👤 Profil & SOP</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button id="btnLogout" class="btn-logout">🚪 Keluar</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="toggleSidebar" class="btn-icon mobile-only">☰</button>
+        <h1>Koordinasi Lintas Sektor & Tracking</h1>
+      </div>
+      <div class="topbar-right">
+        <div class="user-profile">
+          <img src="assets/icons/avatar.png" alt="Avatar" class="avatar">
+          <span id="userName">Operator Kesbangpol</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="content-wrapper">
+      
+      <!-- Forum Diskusi -->
+      <section class="card forum-card">
+        <div class="card-header">
+          <h2>💬 Forum Koordinasi Internal</h2>
+          <button class="btn-primary btn-sm" id="btnNewThread">+ Buat Diskusi Baru</button>
+        </div>
+        <div class="forum-list" id="forumList">
+          <!-- Thread items will be injected via JS -->
+          <div class="forum-empty">Memuat diskusi koordinasi...</div>
+        </div>
+      </section>
+
+      <!-- Tracking Tindak Lanjut -->
+      <section class="card tracking-card">
+        <div class="card-header">
+          <h2>📋 Tracking Tindak Lanjut Laporan</h2>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID Laporan</th>
+                <th>Judul</th>
+                <th>PIC / Stakeholder</th>
+                <th>Batas Waktu</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="trackingTable">
+              <tr><td colspan="6" class="text-center">Memuat data tracking...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Directory Stakeholder -->
+      <section class="card stakeholder-card">
+        <div class="card-header">
+          <h2>👥 Daftar Kontak Stakeholder</h2>
+        </div>
+        <div class="stakeholder-grid" id="stakeholderGrid">
+          <!-- Cards injected via JS -->
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal Diskusi Baru -->
+  <div id="modalThread" class="modal-overlay d-none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>💬 Buat Diskusi Koordinasi</h3>
+        <button class="modal-close" id="closeThreadModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="formThread">
+          <div class="form-group">
+            <label>Judul Diskusi</label>
+            <input type="text" id="threadTitle" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Target Stakeholder</label>
+            <select id="threadTarget" class="form-control" required>
+              <option value="">Pilih Instansi/Perangkat Daerah</option>
+              <option value="Forkopimda">Forkopimda Kabupaten</option>
+              <option value="Polres">Polres Kepahiang</option>
+              <option value="Dandim">Dandim Kepahiang</option>
+              <option value="Camat">Seluruh Camat</option>
+              <option value="Kesbangpol">Internal Kesbangpol</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Isi Pesan / Koordinasi</label>
+            <textarea id="threadContent" class="form-control" rows="4" required></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">📤 Kirim Diskusi</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/koordinasi.js"></script>
+</body>
+</html>
