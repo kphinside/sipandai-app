@@ -6,11 +6,57 @@ document.addEventListener('DOMContentLoaded', () => {
   initReportPage();
 });
 
-// Mock Data (struktur sama dengan Supabase nanti)
-let reportsData = [
-  { id: 201, tgl: '2026-05-24T10:00:00', kec: 'Ujan Mas', desa: 'Talang Berangin', kat: 'Ekonomi', risiko: 'Sedang', status: 'baru', pelapor: 'Admin' },
-  { id: 202, tgl: '2026-05-24T11:30:00', kec: 'Tebo Karang', desa: 'Keban Agung', kat: 'SARA', risiko: 'Tinggi', status: 'diproses', pelapor: 'Operator' }
-];
+// HAPUS: let reportsData = [ {...} ]
+
+// GANTI DENGAN:
+let reportsData = [];
+
+async function fetchReports(filters = {}) {
+  try {
+    let query = window.sbClient
+      .from('conflict_reports')
+      .select(`
+        id, judul, deskripsi, kategori, tingkat_risiko,
+        lokasi_lat, lokasi_lng, alamat_lokasi, status, created_at,
+        kecamatan (nama),
+        profiles (nama_lengkap)
+      `)
+      .order('created_at', { ascending: false });
+
+    // Terapkan filter jika ada
+    if (filters.kecamatan_id) query = query.eq('kecamatan_id', filters.kecamatan_id);
+    if (filters.status) query = query.eq('status', filters.status);
+    if (filters.kategori) query = query.eq('kategori', filters.kategori);
+    if (filters.tingkat_risiko) query = query.eq('tingkat_risiko', filters.tingkat_risiko);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Format data agar cocok dengan renderTable()
+    reportsData = data.map(d => ({
+      id: d.id,
+      tgl: d.created_at,
+      judul: d.judul,
+      kec: d.kecamatan?.nama || '-',
+      desa: d.alamat_lokasi?.split(',')[0] || 'Belum diisi',
+      kat: d.kategori,
+      risiko: d.tingkat_risiko,
+      status: d.status,
+      pelapor: d.profiles?.nama_lengkap || 'Anonim',
+      // Simpan data asli untuk modal/detail
+      _raw: d
+    }));
+
+    renderTable(reportsData);
+    return reportsData;
+
+  } catch (err) {
+    console.error('❌ Gagal fetch laporan:', err);
+    window.app.showToast('Gagal memuat data laporan', 'error');
+    document.getElementById('tableLaporan').innerHTML = 
+      '<tr><td colspan="8" class="text-center text-danger">Gagal memuat data.</td></tr>';
+  }
+}
 
 function initReportPage() {
   renderTable(reportsData);
