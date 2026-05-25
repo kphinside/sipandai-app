@@ -192,12 +192,32 @@ function applyFilters() {
   const selectedRisks = Array.from(document.querySelectorAll('.filter-risk:checked')).map(cb => cb.value);
   const selectedCats = Array.from(document.querySelectorAll('.filter-cat:checked')).map(cb => cb.value);
 
+  let visibleCount = 0;
+  
   markersLayer.eachLayer(marker => {
     const risk = marker.options.risk || 'Sedang';
     const cat = marker.options.category || 'Lainnya';
-    const show = selectedRisks.includes(risk) && selectedCats.includes(cat);
-    if (show) marker.addTo(map);
-    else map.removeLayer(marker);
+    
+    const showRisk = selectedRisks.includes(risk);
+    const showCat = selectedCats.includes(cat);
+    
+    if (showRisk && showCat) {
+      marker.addTo(markersLayer);
+      visibleCount++;
+    } else {
+      markersLayer.removeLayer(marker);
+    }
+  });
+  
+  // Feedback ke user
+  if (window.app?.showToast) {
+    window.app.showToast(`🔍 Menampilkan ${visibleCount} laporan sesuai filter`, 'info');
+  }
+  
+  console.log('Filter diterapkan:', { 
+    risiko: selectedRisks, 
+    kategori: selectedCats, 
+    visible: visibleCount 
   });
 }
 
@@ -269,28 +289,42 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelector('.sidebar')?.classList.toggle('open');
   });
 
-  // Filter Panel - Slide from RIGHT (tidak bentrok dengan zoom control kiri)
-  const filterPanel = document.getElementById('filterPanel');
-  const btnToggleFilters = document.getElementById('btnToggleFilters');
-  const btnCloseFilter = document.getElementById('closeFilterPanel');
-  
-  btnToggleFilters?.addEventListener('click', (e) => {
+// Pastikan event listener ini ada di document.addEventListener('DOMContentLoaded', ...)
+
+// Filter Panel Toggle
+const btnToggleFilters = document.getElementById('btnToggleFilters');
+const filterPanel = document.getElementById('filterPanel');
+const btnCloseFilter = document.getElementById('closeFilterPanel');
+const btnApplyFilters = document.getElementById('applyFilters');
+
+if (btnToggleFilters && filterPanel) {
+  btnToggleFilters.addEventListener('click', (e) => {
     e.stopPropagation();
-    filterPanel?.classList.toggle('open');
+    filterPanel.classList.toggle('open');
   });
-  
-  btnCloseFilter?.addEventListener('click', () => {
-    filterPanel?.classList.remove('open');
+}
+
+if (btnCloseFilter) {
+  btnCloseFilter.addEventListener('click', () => {
+    filterPanel.classList.remove('open');
   });
-  
-  // Tutup panel jika klik di luar
-  document.addEventListener('click', (e) => {
-    if (filterPanel?.classList.contains('open') && 
-        !filterPanel.contains(e.target) && 
-        e.target !== btnToggleFilters) {
-      filterPanel.classList.remove('open');
-    }
+}
+
+if (btnApplyFilters) {
+  btnApplyFilters.addEventListener('click', () => {
+    applyFilters();
+    filterPanel.classList.remove('open');
   });
+}
+
+// Tutup panel jika klik di luar
+document.addEventListener('click', (e) => {
+  if (filterPanel && filterPanel.classList.contains('open') && 
+      !filterPanel.contains(e.target) && 
+      e.target !== btnToggleFilters) {
+    filterPanel.classList.remove('open');
+  }
+});
 
   document.getElementById('applyFilters')?.addEventListener('click', () => {
     applyFilters();
