@@ -1,7 +1,7 @@
 /**
  * js/reports.js
  * Logic Pelaporan SIPANDAI - Integrasi Penuh Supabase
- * Fitur: CRUD, Upload Storage, Filter, Search, Offline-Sync, Export, Real-time Ready
+ * ✅ Cascading Dropdown ✅ Upload Storage ✅ Filter ✅ Export ✅ Real-time ✅ Offline-Sync
  */
 
 // State global
@@ -14,111 +14,32 @@ let currentFilters = {};
 // 1. INIT & FETCH DATA
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-  initReportPage();
-  await fetchReports();
-  setupRealtimeSubscription(); // Opsional: auto-update tanpa refresh
+  await initReportPage();
 });
 
 async function initReportPage() {
+  // Load dropdown dulu sebelum render tabel
+  await loadKecamatanDropdown();
+  setupDropdownListeners();
+  
   renderTable(reportsData);
   setupForm();
   setupSearchFilter();
   setupFilePreview();
   setupModal();
   setupExport();
-  
-  // ✅ Panggil fungsi dropdown
-  await loadKecamatanDropdown();
-  setupDropdownListeners();
-  
   preloadUserData();
-}
-async function fetchReports(filters = {}) {
-  try {
-    currentFilters = { ...filters };
-    
-    // Ambil info user untuk filter otomatis (RLS sudah handle di backend)
-    const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
-    
-    let query = window.sbClient
-      .from('conflict_reports')
-      .select(`
-        id, judul, deskripsi, kategori, tingkat_risiko,
-        lokasi_lat, lokasi_lng, alamat_lokasi, status, created_at, updated_at,
-        kecamatan (id, nama),
-        profiles (id, nama_lengkap, role)
-      `, { count: 'exact' })
-      .order('created_at', { ascending: false });
-
-    // Filter berdasarkan input user
-    if (filters.kecamatan_id) query = query.eq('kecamatan_id', filters.kecamatan_id);
-    if (filters.status) query = query.eq('status', filters.status);
-    if (filters.kategori) query = query.eq('kategori', filters.kategori);
-    if (filters.tingkat_risiko) query = query.eq('tingkat_risiko', filters.tingkat_risiko);
-    if (filters.date_from) query = query.gte('created_at', filters.date_from);
-    if (filters.date_to) query = query.lte('created_at', filters.date_to);
-    
-    // Jika operator kecamatan, otomatis filter ke wilayahnya (double security)
-    if (user.role === 'operator_kec' && user.kecamatan_id) {
-      query = query.eq('kecamatan_id', user.kecamatan_id);
-    }
-
-    // Pagination
-    const from = (currentPage - 1) * ITEMS_PER_PAGE;
-    const to = from + ITEMS_PER_PAGE - 1;
-    query = query.range(from, to);
-
-    const { data, error, count } = await query;
-    if (error) throw error;
-
-    // Format data untuk render
-    reportsData = (data || []).map(d => ({
-      id: d.id,
-      tgl: d.created_at,
-      judul: d.judul,
-      kec: d.kecamatan?.nama || '-',
-      desa: extractDesaFromAlamat(d.alamat_lokasi),
-      kat: d.kategori,
-      risiko: d.tingkat_risiko,
-      status: d.status,
-      pelapor: d.profiles?.nama_lengkap || 'Anonim',
-      _raw: d // Simpan data asli untuk modal/edit
-    }));
-
-    renderTable(reportsData);
-    renderPagination(count);
-    return reportsData;
-
-  } catch (err) {
-    console.error('❌ Gagal fetch laporan:', err);
-    window.app.showToast('Gagal memuat data: ' + err.message, 'error');
-    document.getElementById('tableLaporan').innerHTML = 
-      '<tr><td colspan="8" class="text-center text-danger">⚠️ Gagal memuat data. Periksa koneksi atau hubungi admin.</td></tr>';
-    return [];
-  }
-}
-
-// Helper: Ekstrak nama desa dari alamat_lokasi
-function extractDesaFromAlamat(alamat) {
-  if (!alamat) return 'Belum diisi';
-  const parts = alamat.split(',').map(s => s.trim());
-  return parts[0] || 'Belum diisi';
-}
-
-// Preload data user ke form
-function preloadUserData() {
-  const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
-  if (user.kecamatan_id) {
-    const select = document.getElementById('laporanKecamatan');
-    if (select) select.value = user.kecamatan_id;
-    // Auto-load desa berdasarkan kecamatan (opsional: fetch dari API)
-  }
+  
+  // Fetch data laporan setelah UI siap
+  await fetchReports();
+  
+  // Setup real-time subscription (opsional)
+  setupRealtimeSubscription();
 }
 
 // ==========================================
 // 📍 DROPDOWN CASCADING: KECAMATAN → DESA
 // ==========================================
-
 async function loadKecamatanDropdown() {
   const select = document.getElementById('laporanKecamatan');
   if (!select) return;
@@ -138,9 +59,22 @@ async function loadKecamatanDropdown() {
       opt.textContent = k.nama;
       select.appendChild(opt);
     });
+    
+    console.log(`✅ ${data.length} kecamatan dimuat`);
   } catch (err) {
     console.error('❌ Gagal load kecamatan:', err);
-    window.app.showToast('Gagal memuat data kecamatan', 'error');
+    // Fallback hardcoded jika gagal
+    select.innerHTML = `
+      <option value="">Pilih Kecamatan *</option>
+      <option value="8">Kepahiang</option>
+      <option value="9">Tebat Karai</option>
+      <option value="10">Merigi</option>
+      <option value="11">Kabawetan</option>
+      <option value="12">Muara Kemumu</option>
+      <option value="13">Bermani Ilir</option>
+      <option value="14">Seberang Musi</option>
+      <option value="15">Ujan Mas</option>
+    `;
   }
 }
 
@@ -148,8 +82,8 @@ async function loadDesaDropdown(kecamatanId) {
   const selectDesa = document.getElementById('laporanDesa');
   if (!selectDesa) return;
 
-  // Reset & tampilkan loading
-  selectDesa.innerHTML = '<option value="">Memuat desa...</option>';
+  // Reset & loading state
+  selectDesa.innerHTML = '<option value="">⏳ Memuat desa...</option>';
   selectDesa.disabled = true;
 
   if (!kecamatanId) {
@@ -161,7 +95,7 @@ async function loadDesaDropdown(kecamatanId) {
     const { data, error } = await window.sbClient
       .from('desa')
       .select('id, nama')
-      .eq('kecamatan_id', kecamatanId)
+      .eq('kecamatan_id', parseInt(kecamatanId))
       .order('nama');
     
     if (error) throw error;
@@ -176,16 +110,20 @@ async function loadDesaDropdown(kecamatanId) {
         selectDesa.appendChild(opt);
       });
       selectDesa.disabled = false; // ✅ Aktifkan setelah data muncul
+      console.log(`✅ ${data.length} desa dimuat untuk kecamatan ${kecamatanId}`);
     } else {
       selectDesa.innerHTML = '<option value="">Tidak ada data desa</option>';
+      console.warn('⚠️ Tidak ada desa untuk kecamatan ini');
     }
   } catch (err) {
     console.error('❌ Gagal load desa:', err);
-    selectDesa.innerHTML = '<option value="">Gagal memuat desa</option>';
+    selectDesa.innerHTML = '<option value="">❌ Gagal memuat desa</option>';
+    if (window.app?.showToast) {
+      window.app.showToast('Gagal memuat data desa', 'error');
+    }
   }
 }
 
-// Setup Event Listener
 function setupDropdownListeners() {
   const kecSelect = document.getElementById('laporanKecamatan');
   kecSelect?.addEventListener('change', (e) => {
@@ -194,7 +132,91 @@ function setupDropdownListeners() {
 }
 
 // ==========================================
-// 2. RENDER TABLE & PAGINATION
+// 📥 FETCH LAPORAN DARI SUPABASE
+// ==========================================
+async function fetchReports(filters = {}) {
+  try {
+    currentFilters = { ...filters };
+    const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
+    
+    let query = window.sbClient
+      .from('conflict_reports')
+      .select(`
+        id, judul, deskripsi, kategori, tingkat_risiko,
+        lokasi_lat, lokasi_lng, alamat_lokasi, status, created_at, updated_at,
+        kecamatan (id, nama),
+        desa (id, nama),
+        profiles (id, nama_lengkap, role)
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false });
+
+    // Filter server-side
+    if (filters.kecamatan_id) query = query.eq('kecamatan_id', filters.kecamatan_id);
+    if (filters.status) query = query.eq('status', filters.status);
+    if (filters.kategori) query = query.eq('kategori', filters.kategori);
+    if (filters.tingkat_risiko) query = query.eq('tingkat_risiko', filters.tingkat_risiko);
+    if (filters.date_from) query = query.gte('created_at', filters.date_from);
+    if (filters.date_to) query = query.lte('created_at', filters.date_to);
+    
+    // RLS: operator hanya lihat kecamatannya
+    if (user.role === 'operator_kec' && user.kecamatan_id) {
+      query = query.eq('kecamatan_id', user.kecamatan_id);
+    }
+
+    // Pagination
+    const from = (currentPage - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    // Format data untuk render
+    reportsData = (data || []).map(d => ({
+      id: d.id,
+      tgl: d.created_at,
+      judul: d.judul,
+      kec: d.kecamatan?.nama || '-',
+      desa: d.desa?.nama || extractDesaFromAlamat(d.alamat_lokasi),
+      kat: d.kategori || 'Lainnya',
+      risiko: d.tingkat_risiko || 'Sedang',
+      status: d.status,
+      pelapor: d.profiles?.nama_lengkap || 'Anonim',
+      _raw: d
+    }));
+
+    renderTable(reportsData);
+    renderPagination(count);
+    return reportsData;
+
+  } catch (err) {
+    console.error('❌ Gagal fetch laporan:', err);
+    window.app.showToast('Gagal memuat data: ' + err.message, 'error');
+    document.getElementById('tableLaporan').innerHTML = 
+      '<tr><td colspan="8" class="text-center text-danger">⚠️ Gagal memuat data. Periksa koneksi atau hubungi admin.</td></tr>';
+    return [];
+  }
+}
+
+function extractDesaFromAlamat(alamat) {
+  if (!alamat) return '-';
+  const parts = alamat.split(',').map(s => s.trim());
+  return parts[0] || '-';
+}
+
+function preloadUserData() {
+  const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
+  if (user.kecamatan_id) {
+    const select = document.getElementById('laporanKecamatan');
+    if (select) {
+      select.value = user.kecamatan_id;
+      loadDesaDropdown(user.kecamatan_id); // Auto-load desa jika user punya kecamatan
+    }
+  }
+}
+
+// ==========================================
+// 📊 RENDER TABLE & PAGINATION
 // ==========================================
 function renderTable(data) {
   const tbody = document.getElementById('tableLaporan');
@@ -229,7 +251,6 @@ function renderTable(data) {
   });
 }
 
-// Role-based permission helper
 function canEditReport(item) {
   const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
   if (user.role === 'admin_kesbangpol') return true;
@@ -239,7 +260,7 @@ function canEditReport(item) {
 
 function canDeleteReport(item) {
   const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
-  return user.role === 'admin_kesbangpol'; // Hanya admin yang bisa hapus
+  return user.role === 'admin_kesbangpol';
 }
 
 function renderPagination(totalCount) {
@@ -263,12 +284,11 @@ window.changePage = async (page) => {
   if (page < 1) return;
   currentPage = page;
   await fetchReports(currentFilters);
-  // Scroll ke atas tabel
   document.querySelector('.table-section')?.scrollIntoView({ behavior: 'smooth' });
 };
 
 // ==========================================
-// 3. FORM SUBMIT + UPLOAD STORAGE
+// 📤 FORM SUBMIT + UPLOAD STORAGE
 // ==========================================
 function setupForm() {
   const form = document.getElementById('formLaporan');
@@ -280,41 +300,52 @@ function setupForm() {
     window.app.setLoading(btn, true);
 
     try {
-      // Validasi minimal
+      // Validasi WAJIB
       const judul = document.getElementById('laporanJudul').value.trim();
       const kecamatan_id = document.getElementById('laporanKecamatan').value;
-      const kategori = document.getElementById('laporanKategori').value;
-      const risiko = document.getElementById('laporanRisiko').value;
+      const desa_id = document.getElementById('laporanDesa').value;
       
-      if (!judul || !kecamatan_id || !kategori || !risiko) {
-        throw new Error('Judul, Kecamatan, Kategori, dan Tingkat Risiko wajib diisi');
+      if (!judul) {
+        window.app.showToast('Judul laporan wajib diisi', 'error');
+        document.getElementById('laporanJudul').focus();
+        return;
+      }
+      if (!kecamatan_id) {
+        window.app.showToast('Kecamatan wajib dipilih', 'error');
+        document.getElementById('laporanKecamatan').focus();
+        return;
+      }
+      if (!desa_id) {
+        window.app.showToast('Desa wajib dipilih', 'error');
+        document.getElementById('laporanDesa').focus();
+        return;
       }
 
-      // 1. Upload file ke Supabase Storage (jika ada)
+      // Upload file (jika ada)
       let foto_url = null;
       const fileInput = document.getElementById('laporanBukti');
       if (fileInput?.files?.[0]) {
         foto_url = await uploadBukti(fileInput.files[0]);
       }
 
-      // 2. Siapkan payload
+      // Siapkan payload
       const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
       const payload = {
         judul,
-        deskripsi: document.getElementById('laporanDeskripsi').value.trim(),
-        kategori,
-        tingkat_risiko: risiko,
+        deskripsi: document.getElementById('laporanDeskripsi').value.trim() || null,
+        kategori: document.getElementById('laporanKategori').value || 'Lainnya',
+        tingkat_risiko: document.getElementById('laporanRisiko').value || 'Sedang',
         lokasi_lat: parseFloat(document.getElementById('laporanLat').value) || null,
         lokasi_lng: parseFloat(document.getElementById('laporanLng').value) || null,
-        alamat_lokasi: document.getElementById('laporanLokasi').value.trim(),
+        alamat_lokasi: document.getElementById('laporanLokasi').value.trim() || null,
         kecamatan_id: parseInt(kecamatan_id),
-        desa_id: parseInt(document.getElementById('laporanDesa').value) || null,
+        desa_id: parseInt(desa_id),
         foto_url,
         pelapor_id: user.id,
         status: 'baru'
       };
 
-      // 3. Insert ke Supabase
+      // Insert ke Supabase
       if (navigator.onLine) {
         const { data, error } = await window.sbClient
           .from('conflict_reports')
@@ -326,14 +357,16 @@ function setupForm() {
         
         window.app.showToast('✅ Laporan berhasil dikirim ke database pusat', 'success');
         
-        // Refresh data & reset form
+        // Reset & refresh
         form.reset();
         document.getElementById('filePreview').innerHTML = '';
+        document.getElementById('laporanDesa').innerHTML = '<option value="">Pilih Kecamatan Dulu</option>';
+        document.getElementById('laporanDesa').disabled = true;
         currentPage = 1;
         await fetchReports();
         
       } else {
-        // Offline: simpan ke antrian lokal
+        // Offline queue
         window.syncOfflineQueue?.queueOfflineReport({ ...payload, queuedAt: new Date().toISOString() });
         window.app.showToast('⚠️ Offline. Laporan disimpan & akan dikirim otomatis saat online.', 'warning');
         form.reset();
@@ -352,14 +385,15 @@ function setupForm() {
   document.getElementById('btnReset')?.addEventListener('click', () => {
     document.getElementById('formLaporan').reset();
     document.getElementById('filePreview').innerHTML = '';
+    document.getElementById('laporanDesa').innerHTML = '<option value="">Pilih Kecamatan Dulu</option>';
+    document.getElementById('laporanDesa').disabled = true;
   });
 }
 
-// Upload file ke Supabase Storage
 async function uploadBukti(file) {
   const fileName = `bukti/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
   
-  const { error: uploadError, data: uploadData } = await window.sbClient.storage
+  const { error: uploadError } = await window.sbClient.storage
     .from('bukti-laporan')
     .upload(fileName, file, {
       cacheControl: '3600',
@@ -376,33 +410,27 @@ async function uploadBukti(file) {
 }
 
 // ==========================================
-// 4. SEARCH & FILTER (Client + Server Hybrid)
+// 🔍 SEARCH & FILTER
 // ==========================================
 function setupSearchFilter() {
   const search = document.getElementById('searchLaporan');
   const kecFilter = document.getElementById('filterKecamatanList');
   const statusFilter = document.getElementById('filterStatusList');
   const risikoFilter = document.getElementById('filterRisikoList');
-  const kategoriFilter = document.getElementById('filterKategoriList');
-  const dateFilter = document.getElementById('filterDate');
   const form = document.getElementById('filterForm');
 
   const applyFilters = async () => {
     const filters = {
       kecamatan_id: kecFilter?.value || null,
       status: statusFilter?.value || null,
-      kategori: kategoriFilter?.value || null,
-      tingkat_risiko: risikoFilter?.value || null,
-      date_from: dateFilter?.value ? new Date(dateFilter.value).toISOString() : null
+      tingkat_risiko: risikoFilter?.value || null
     };
     
-    // Search text: filter client-side untuk performa
     const searchTerm = search?.value.toLowerCase() || '';
-    
-    currentPage = 1; // Reset ke halaman 1 saat filter berubah
+    currentPage = 1;
     await fetchReports(filters);
     
-    // Jika ada searchTerm, filter hasil yang sudah di-fetch
+    // Client-side search tambahan
     if (searchTerm && reportsData.length > 0) {
       const filtered = reportsData.filter(d => 
         d.judul?.toLowerCase().includes(searchTerm) ||
@@ -414,14 +442,13 @@ function setupSearchFilter() {
     }
   };
 
-  // Auto-apply on input change (debounce untuk search)
   let searchTimeout;
   search?.addEventListener('input', () => {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(applyFilters, 300);
   });
   
-  [kecFilter, statusFilter, risikoFilter, kategoriFilter, dateFilter].forEach(el => {
+  [kecFilter, statusFilter, risikoFilter].forEach(el => {
     el?.addEventListener('change', applyFilters);
   });
   
@@ -432,7 +459,7 @@ function setupSearchFilter() {
 }
 
 // ==========================================
-// 5. FILE PREVIEW
+// 📎 FILE PREVIEW
 // ==========================================
 function setupFilePreview() {
   const input = document.getElementById('laporanBukti');
@@ -455,7 +482,6 @@ function setupFilePreview() {
         };
         reader.readAsDataURL(file);
       } else {
-        // Non-image: tampilkan nama file
         const badge = document.createElement('span');
         badge.className = 'file-badge';
         badge.textContent = `📄 ${file.name}`;
@@ -466,24 +492,19 @@ function setupFilePreview() {
 }
 
 // ==========================================
-// 6. MODAL DETAIL & STATUS UPDATE
+// 📖 MODAL & STATUS UPDATE
 // ==========================================
 function setupModal() {
-  // Close modal on overlay click
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) {
-        overlay.classList.add('d-none');
-      }
+      if (e.target === overlay) overlay.classList.add('d-none');
     });
   });
   
-  // Close button
   document.getElementById('closeModal')?.addEventListener('click', () => {
     document.getElementById('modalDetail').classList.add('d-none');
   });
   
-  // Update status form
   document.getElementById('formUpdateStatus')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const reportId = document.getElementById('updateReportId')?.value;
@@ -494,17 +515,14 @@ function setupModal() {
     try {
       const { error } = await window.sbClient
         .from('conflict_reports')
-        .update({ 
-          status: newStatus, 
-          updated_at: new Date().toISOString() 
-        })
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', reportId);
       
       if (error) throw error;
       
       window.app.showToast(`✅ Status diperbarui menjadi "${newStatus}"`, 'success');
       document.getElementById('modalDetail').classList.add('d-none');
-      await fetchReports(currentFilters); // Refresh table
+      await fetchReports(currentFilters);
       
     } catch (err) {
       window.app.showToast('Gagal update status: ' + err.message, 'error');
@@ -512,18 +530,15 @@ function setupModal() {
   });
 }
 
-// Global: Buka modal detail
 window.openReportModal = async (id) => {
   try {
-    // Coba ambil dari cache dulu
     let item = reportsData.find(d => d.id === id);
     
-    // Jika tidak lengkap, fetch dari server
     if (!item?._raw) {
       const { data, error } = await window.sbClient
         .from('conflict_reports')
         .select(`
-          *, kecamatan(nama), profiles(nama_lengkap, role),
+          *, kecamatan(nama), desa(nama), profiles(nama_lengkap, role),
           audit_logs(action, created_at)
         `)
         .eq('id', id)
@@ -535,34 +550,24 @@ window.openReportModal = async (id) => {
     
     const d = item._raw;
     
-    // Isi modal
     document.getElementById('modalTitle').textContent = `Laporan #${d.id}: ${d.judul}`;
     document.getElementById('modalBody').innerHTML = `
       <div class="modal-meta">
-        <div><span class="meta-label">Kategori</span><span class="meta-value">${d.kategori}</span></div>
-        <div><span class="meta-label">Tingkat Risiko</span><span class="meta-value ${window.app.getRisikoClass(d.tingkat_risiko)}">${window.app.formatRisiko(d.tingkat_risiko)}</span></div>
-        <div><span class="meta-label">Lokasi</span><span class="meta-value">${d.kecamatan?.nama || '-'}, ${d.alamat_lokasi || '-'}</span></div>
+        <div><span class="meta-label">Kategori</span><span class="meta-value">${d.kategori || 'Lainnya'}</span></div>
+        <div><span class="meta-label">Risiko</span><span class="meta-value ${window.app.getRisikoClass(d.tingkat_risiko)}">${window.app.formatRisiko(d.tingkat_risiko)}</span></div>
+        <div><span class="meta-label">Lokasi</span><span class="meta-value">${d.kecamatan?.nama || '-'}, ${d.desa?.nama || d.alamat_lokasi || '-'}</span></div>
         <div><span class="meta-label">Koordinat</span><span class="meta-value">${d.lokasi_lat ? `${d.lokasi_lat}, ${d.lokasi_lng}` : '-'}</span></div>
         <div><span class="meta-label">Status</span><span class="meta-value">${window.app.formatStatus(d.status)}</span></div>
         <div><span class="meta-label">Pelapor</span><span class="meta-value">${d.profiles?.nama_lengkap || '-'}</span></div>
         <div><span class="meta-label">Dibuat</span><span class="meta-value">${window.app.formatDate(d.created_at)}</span></div>
-        <div><span class="meta-label">Terakhir Update</span><span class="meta-value">${d.updated_at ? window.app.formatDate(d.updated_at) : '-'}</span></div>
+        <div><span class="meta-label">Update</span><span class="meta-value">${d.updated_at ? window.app.formatDate(d.updated_at) : '-'}</span></div>
       </div>
       <p><strong>Deskripsi:</strong></p>
       <p class="meta-desc">${d.deskripsi || '-'}</p>
-      ${d.foto_url ? `
-        <p><strong>Bukti:</strong></p>
-        <a href="${d.foto_url}" target="_blank" class="btn-outline btn-sm">🖼️ Lihat Bukti (Foto/Video)</a>
-      ` : ''}
-      ${d.audit_logs?.length > 0 ? `
-        <p class="mt-2"><strong>Riwayat Aktivitas:</strong></p>
-        <ul class="audit-list">
-          ${d.audit_logs.map(log => `<li><small>${window.app.formatDate(log.created_at)} - ${log.action}</small></li>`).join('')}
-        </ul>
-      ` : ''}
+      ${d.foto_url ? `<p><strong>Bukti:</strong><br><a href="${d.foto_url}" target="_blank" class="btn-outline btn-sm">🖼️ Lihat Bukti</a></p>` : ''}
+      ${d.audit_logs?.length > 0 ? `<p class="mt-2"><strong>Riwayat:</strong><ul class="audit-list">${d.audit_logs.map(log => `<li><small>${window.app.formatDate(log.created_at)} - ${log.action}</small></li>`).join('')}</ul></p>` : ''}
     `;
     
-    // Setup tombol update status (jika boleh)
     const updateSection = document.getElementById('modalUpdateSection');
     if (updateSection && canEditReport(item)) {
       updateSection.classList.remove('d-none');
@@ -580,7 +585,6 @@ window.openReportModal = async (id) => {
   }
 };
 
-// Global: Tampilkan modal update status
 window.showStatusModal = (id, currentStatus) => {
   document.getElementById('updateReportId').value = id;
   document.getElementById('updateStatusSelect').value = currentStatus;
@@ -588,9 +592,8 @@ window.showStatusModal = (id, currentStatus) => {
   document.getElementById('modalDetail')?.classList.remove('d-none');
 };
 
-// Global: Konfirmasi hapus
 window.confirmDelete = async (id) => {
-  if (!confirm('⚠️ Yakin ingin menghapus laporan #'+id+'? Tindakan ini tidak dapat dibatalkan.')) return;
+  if (!confirm('⚠️ Yakin ingin menghapus laporan #'+id+'?')) return;
   
   try {
     const { error } = await window.sbClient
@@ -609,7 +612,7 @@ window.confirmDelete = async (id) => {
 };
 
 // ==========================================
-// 7. EXPORT DATA (Excel/CSV)
+// 📥 EXPORT CSV
 // ==========================================
 function setupExport() {
   document.getElementById('btnExport')?.addEventListener('click', async () => {
@@ -617,24 +620,20 @@ function setupExport() {
     window.app.setLoading(btn, true);
     
     try {
-      // Fetch semua data (tanpa pagination) untuk export
       let query = window.sbClient
         .from('conflict_reports')
         .select(`
           id, judul, kategori, tingkat_risiko, status, created_at,
-          kecamatan(nama), profiles(nama_lengkap)
+          kecamatan(nama), desa(nama), profiles(nama_lengkap)
         `)
         .order('created_at', { ascending: false });
       
-      // Terapkan filter yang aktif
       if (currentFilters.kecamatan_id) query = query.eq('kecamatan_id', currentFilters.kecamatan_id);
       if (currentFilters.status) query = query.eq('status', currentFilters.status);
-      // ... tambahkan filter lain sesuai kebutuhan
       
       const { data, error } = await query;
       if (error) throw error;
       
-      // Konversi ke CSV
       const csv = convertToCSV(data);
       downloadCSV(csv, `laporan_sipandai_${new Date().toISOString().slice(0,10)}.csv`);
       
@@ -650,20 +649,19 @@ function setupExport() {
 
 function convertToCSV(data) {
   if (!data?.length) return '';
-  
-  const headers = ['ID', 'Tanggal', 'Judul', 'Kategori', 'Risiko', 'Status', 'Kecamatan', 'Pelapor', 'Deskripsi'];
+  const headers = ['ID', 'Tanggal', 'Judul', 'Kecamatan', 'Desa', 'Kategori', 'Risiko', 'Status', 'Pelapor', 'Deskripsi'];
   const rows = data.map(d => [
     d.id,
     new Date(d.created_at).toLocaleString('id-ID'),
     `"${(d.judul || '').replace(/"/g, '""')}"`,
-    d.kategori,
-    d.tingkat_risiko,
-    d.status,
     d.kecamatan?.nama || '-',
+    d.desa?.nama || '-',
+    d.kategori || 'Lainnya',
+    d.tingkat_risiko || 'Sedang',
+    d.status,
     d.profiles?.nama_lengkap || '-',
     `"${(d.deskripsi || '').replace(/"/g, '""')}"`
   ]);
-  
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 }
 
@@ -679,12 +677,11 @@ function downloadCSV(content, filename) {
 }
 
 // ==========================================
-// 8. REAL-TIME SUBSCRIPTION (Opsional)
+// 🔄 REAL-TIME SUBSCRIPTION (Opsional)
 // ==========================================
 function setupRealtimeSubscription() {
   if (!window.sbClient?.channel) return;
   
-  // Subscribe ke perubahan tabel conflict_reports
   window.sbClient
     .channel('public:conflict_reports')
     .on('postgres_changes', {
@@ -693,8 +690,6 @@ function setupRealtimeSubscription() {
       table: 'conflict_reports'
     }, (payload) => {
       console.log('🔄 Realtime update:', payload.eventType, payload.new?.id);
-      
-      // Auto-refresh jika user sedang di halaman ini
       if (document.visibilityState === 'visible') {
         fetchReports(currentFilters);
         window.app.showToast('📊 Data diperbarui secara real-time', 'info');
