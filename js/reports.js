@@ -26,12 +26,13 @@ async function initReportPage() {
   setupFilePreview();
   setupModal();
   setupExport();
-  populateKecamatanDropdown();
   
-  // Auto-load data user untuk form
+  // ✅ Panggil fungsi dropdown
+  await loadKecamatanDropdown();
+  setupDropdownListeners();
+  
   preloadUserData();
 }
-
 async function fetchReports(filters = {}) {
   try {
     currentFilters = { ...filters };
