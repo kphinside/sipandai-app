@@ -117,7 +117,12 @@ function preloadUserData() {
 // Di js/reports.js - fungsi populateKecamatanDropdown()
 async function populateKecamatanDropdown() {
   const select = document.getElementById('laporanKecamatan');
-  if (!select) return;
+  if (!select) {
+    console.error('❌ Elemen #laporanKecamatan tidak ditemukan di DOM');
+    return;
+  }
+  
+  console.log('🔄 Memuat data kecamatan dari Supabase...');
   
   try {
     const { data, error } = await window.sbClient
@@ -125,7 +130,17 @@ async function populateKecamatanDropdown() {
       .select('id, nama')
       .order('nama');
     
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error query kecamatan:', error);
+      throw error;
+    }
+    
+    console.log('✅ Data kecamatan diterima:', data);
+    
+    if (!data || data.length === 0) {
+      console.warn('⚠️ Tabel kecamatan kosong');
+      return;
+    }
     
     // Simpan opsi default
     const defaultOption = document.createElement('option');
@@ -140,9 +155,23 @@ async function populateKecamatanDropdown() {
       opt.textContent = k.nama;
       select.appendChild(opt);
     });
+    
+    console.log(`✅ ${data.length} kecamatan berhasil dimuat ke dropdown`);
+    
   } catch (err) {
-    console.warn('⚠️ Gagal load kecamatan:', err);
+    console.error('❌ Gagal load kecamatan:', err);
     // Fallback: opsi hardcoded (jika emergency)
+    select.innerHTML = `
+      <option value="">Pilih Kecamatan</option>
+      <option value="1">Kepahiang</option>
+      <option value="2">Tebat Karai</option>
+      <option value="3">Merigi</option>
+      <option value="4">Kabawetan</option>
+      <option value="5">Muara Kemumu</option>
+      <option value="6">Bermani Ilir</option>
+      <option value="7">Seberang Musi</option>
+      <option value="8">Ujan Mas</option>
+    `;
   }
 }
 
