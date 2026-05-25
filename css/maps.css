@@ -1,6 +1,5 @@
-/* ===== MAP PAGE - UI CONTROLS COORDINATION ===== */
+/* ===== REORGANISASI UI CONTROLS ===== */
 
-/* Container utama */
 .map-page .main-content {
   position: relative;
   background: #f1f5f9;
@@ -8,15 +7,15 @@
 
 .map-container {
   width: 100%;
-  height: calc(100vh - 72px); /* Sesuaikan dengan tinggi topbar */
+  height: calc(100vh - 72px);
   z-index: 1;
 }
 
-/* 🎛️ Map Controls - Dikelompokkan KIRI ATAS (jauh dari zoom kanan-bawah) */
+/* 🎛️ Map Controls - KIRI ATAS (jauh dari legend) */
 .map-controls {
   position: absolute;
-  top: 90px;      /* Jarak dari topbar */
-  left: 12px;     /* Kiri, tidak bentrok dengan zoom Leaflet */
+  top: 90px;
+  left: 12px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -42,10 +41,9 @@
   background: #f8fafc;
   border-color: var(--primary);
   color: var(--primary);
-  transform: translateY(-1px);
 }
 
-/* 🔍 Filter Panel - Slide dari KANAN (tidak bentrok dengan controls kiri) */
+/* 🔍 Filter Panel - KANAN ATAS (tidak bentrok dengan controls kiri) */
 .filter-panel {
   position: absolute;
   top: 90px;
@@ -62,7 +60,7 @@
 }
 
 .filter-panel.open {
-  right: 12px;    /* Muncul dengan jarak aman dari edge */
+  right: 12px;
 }
 
 .panel-header {
@@ -90,14 +88,12 @@
   cursor: pointer;
   color: var(--gray);
   padding: 0.25rem;
-  line-height: 1;
 }
 
 .panel-body {
   padding: 1rem 1.25rem;
 }
 
-/* Filter groups */
 .filter-group {
   margin-bottom: 1.25rem;
 }
@@ -107,7 +103,6 @@
   font-weight: 600;
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
-  color: var(--dark);
 }
 
 .checkbox-label {
@@ -122,14 +117,13 @@
 
 .checkbox-label input {
   accent-color: var(--primary);
-  cursor: pointer;
 }
 
-/* 🗺️ Map Legend - POJOK KIRI BAWAH (jauh dari zoom kanan-bawah) */
+/* 🗺️ Legend - KANAN BAWAH (jauh dari controls kiri & zoom) */
 .map-legend {
   position: absolute;
   bottom: 20px;
-  left: 12px;
+  right: 12px;  /* ✅ PINDAH KE KANAN */
   background: #fff;
   padding: 0.75rem 1rem;
   border-radius: 10px;
@@ -177,12 +171,8 @@
 
 /* 📦 Modal */
 .map-modal { max-width: 480px; }
-.modal-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; font-size: 0.9rem; }
-.meta-label { color: var(--gray); }
-.meta-value { font-weight: 500; color: var(--dark); }
-.meta-desc { margin-top: 0.5rem; line-height: 1.5; color: var(--dark); }
 
-/* 🗺️ Leaflet Popup Custom */
+/* 🗺️ Leaflet Popup */
 .leaflet-popup-content-wrapper {
   border-radius: 10px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.15);
@@ -213,9 +203,10 @@
   
   .map-legend {
     bottom: 15px;
-    left: 10px;
+    right: 10px;
     font-size: 0.8rem;
     padding: 0.6rem 0.9rem;
+    min-width: 150px;
   }
   
   .modal-content {
@@ -223,18 +214,13 @@
     max-width: 95%;
     margin: 1rem;
   }
-  
-  /* Zoom control Leaflet otomatis responsif */
-  .leaflet-control-zoom {
-    transform: scale(0.95);
-  }
 }
 
-/* 🎯 Pastikan tidak ada elemen yang menimpa controls Leaflet */
+/* Pastikan z-index tidak bentrok */
 .leaflet-control-container .leaflet-control {
   z-index: 999 !important;
 }
 
 .map-controls, .filter-panel, .map-legend {
-  z-index: 1000 !important; /* Di atas Leaflet controls */
+  z-index: 1000 !important;
 }
