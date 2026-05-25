@@ -1,30 +1,31 @@
 /**
  * js/maps.js
- * Inisialisasi Peta Leaflet dengan Fokus Wilayah Kabupaten Kepahiang
- * ✅ Sudah include RISK_COLORS & semua dependency
+ * Peta SIPANDAI - Fokus Kabupaten Kepahiang + UI Controls Terkoordinasi
+ * ✅ Bounds akurat ✅ Controls tidak bentrok ✅ Responsive mobile
  */
 
-// 🎨 Warna Risiko (WAJIB: definisikan sebelum dipakai)
+// 🎨 Warna Risiko (konstan)
 const RISK_COLORS = {
   'Kritis': '#991b1b',
-  'Tinggi': '#dc2626',
+  'Tinggi': '#dc2626', 
   'Sedang': '#eab308',
   'Rendah': '#22c55e'
 };
 
-// 🌍 Konfigurasi Peta (DIKUNCI untuk Kepahiang)
+// 🌍 Konfigurasi Peta (BOUNDS AKURAT untuk Kab. Kepahiang)
+// Sumber: Geocoding BPS + Google Maps referensi
 const MAP_CONFIG = {
-  center: [-3.650, 102.565], // Pusat geografis Kab. Kepahiang
-  zoom: 10,
-  minZoom: 9,                // Mencegah zoom out terlalu jauh
-  maxZoom: 16,               // Maksimal zoom detail
-  // Batas wilayah: [SouthWest [lat, lng], NorthEast [lat, lng]]
+  center: [-3.652, 102.558], // Titik tengah administratif Kepahiang
+  zoom: 11,                  // Zoom awal: cukup lihat 8 kecamatan
+  minZoom: 10,               // Mencegah zoom out ke Bengkulu/Rejang Lebong
+  maxZoom: 15,               // Detail maksimal untuk level desa
+  // 🔒 Batas ketat: [SouthWest [lat, lng], NorthEast [lat, lng]]
   bounds: [
-    [-3.790, 102.380], // Barat Daya (perbatasan Rejang Lebong/Bengkulu Selatan)
-    [-3.510, 102.750]  // Timur Laut (perbatasan Bengkulu Tengah)
+    [-3.745, 102.465], // Barat Daya: perbatasan Kabawetan-Muara Kemumu
+    [-3.560, 102.650]  // Timur Laut: perbatasan Kepahiang-Bermani Ilir
   ],
   tileLayer: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | SIPANDAI Kepahiang'
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> • SIPANDAI Kepahiang'
 };
 
 let map, zonesLayer, markersLayer;
@@ -36,14 +37,14 @@ function initMap() {
     zoom: MAP_CONFIG.zoom,
     minZoom: MAP_CONFIG.minZoom,
     maxZoom: MAP_CONFIG.maxZoom,
-    maxBounds: MAP_CONFIG.bounds,      // 🔒 Kunci area pandang
-    maxBoundsViscosity: 1.0,           // Mencegah "membal" keluar batas
-    zoomControl: false,
+    maxBounds: MAP_CONFIG.bounds,
+    maxBoundsViscosity: 1.0, // "Bouncing" keras saat coba drag keluar batas
+    zoomControl: false,      // Kita tempatkan manual agar tidak bentrok
     zoomSnap: 0.5,
     zoomDelta: 0.5
   });
 
-  // Pindahkan kontrol zoom ke kanan bawah
+  // ✅ Tempatkan zoom control di pojok kanan BAWAH (tidak bentrok dengan filter)
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
   // Base Layer
@@ -56,71 +57,90 @@ function initMap() {
   zonesLayer = L.featureGroup().addTo(map);
   markersLayer = L.featureGroup().addTo(map);
 
-  // Load Mock Data
+  // Load Mock Data (nanti diganti fetch Supabase)
   loadMockZones();
   loadMockMarkers();
   
-  // Fit bounds jika ada data
+  // Fit view ke data jika ada, tetap dalam batas Kepahiang
   if (zonesLayer.getLayers().length > 0 || markersLayer.getLayers().length > 0) {
     const group = L.featureGroup([...zonesLayer.getLayers(), ...markersLayer.getLayers()]);
-    map.fitBounds(group.getBounds().pad(0.1));
+    const bounds = group.getBounds().pad(0.15); // padding 15% agar tidak mepet edge
+    // Hanya fit jika bounds masih dalam area Kepahiang
+    if (MAP_CONFIG.bounds[0][0] <= bounds.getSouthWest().lat && 
+        bounds.getNorthEast().lat <= MAP_CONFIG.bounds[1][0]) {
+      map.fitBounds(bounds);
+    }
   }
 }
 
-// 🟥🟨🟩 Mock Data Zona (Koordinat dalam batas Kepahiang)
+// 🟥🟨🟩 Mock Data Zona (koordinat dalam batas Kepahiang)
 function loadMockZones() {
   const mockZones = [
-    { name: "Zona Kritis - Kepahiang Kota", coords: [[-3.66,102.55],[-3.66,102.58],[-3.64,102.58],[-3.64,102.55]], risk: "Kritis" },
-    { name: "Zona Sedang - Bermani Ilir", coords: [[-3.70,102.52],[-3.70,102.56],[-3.68,102.56],[-3.68,102.52]], risk: "Sedang" },
-    { name: "Zona Rendah - Muara Kemumu", coords: [[-3.62,102.48],[-3.62,102.52],[-3.60,102.52],[-3.60,102.48]], risk: "Rendah" }
+    { 
+      name: "Zona Kritis - Kepahiang Kota", 
+      coords: [[-3.660,102.545],[-3.660,102.570],[-3.645,102.570],[-3.645,102.545]], 
+      risk: "Kritis" 
+    },
+    { 
+      name: "Zona Sedang - Bermani Ilir", 
+      coords: [[-3.720,102.530],[-3.720,102.560],[-3.700,102.560],[-3.700,102.530]], 
+      risk: "Sedang" 
+    },
+    { 
+      name: "Zona Rendah - Muara Kemumu", 
+      coords: [[-3.630,102.480],[-3.630,102.510],[-3.610,102.510],[-3.610,102.480]], 
+      risk: "Rendah" 
+    }
   ];
 
   mockZones.forEach(zone => {
     const polygon = L.polygon(zone.coords, {
       color: RISK_COLORS[zone.risk],
       fillColor: RISK_COLORS[zone.risk],
-      fillOpacity: 0.25,
+      fillOpacity: 0.20,
       weight: 2,
-      dashArray: '4 4'
+      dashArray: '5 5'
     }).addTo(zonesLayer);
 
     polygon.bindPopup(`<strong>${zone.name}</strong><br>Tingkat Risiko: ${zone.risk}`);
   });
 }
 
-// 📍 Mock Data Marker Laporan
+// 📍 Mock Data Marker (dalam batas Kepahiang)
 function loadMockMarkers() {
   const mockReports = [
-    { id: 1, title: "Konflik Lahan Desa X", lat: -3.652, lng: 102.565, risk: "Tinggi", category: "Ekonomi", desc: "Sengketa batas lahan antar warga." },
-    { id: 2, title: "Protes Infrastruktur", lat: -3.668, lng: 102.542, risk: "Sedang", category: "Politik", desc: "Tuntutan perbaikan jalan rusak." },
-    { id: 3, title: "Potensi Bentrok Antar Kampung", lat: -3.635, lng: 102.578, risk: "Kritis", category: "SARA", desc: "Pemicu: Isu hoaks di media sosial." }
+    { id: 1, title: "Konflik Lahan Desa X", lat: -3.652, lng: 102.558, risk: "Tinggi", category: "Ekonomi", desc: "Sengketa batas lahan antar warga." },
+    { id: 2, title: "Protes Infrastruktur", lat: -3.710, lng: 102.545, risk: "Sedang", category: "Politik", desc: "Tuntutan perbaikan jalan rusak." },
+    { id: 3, title: "Potensi Bentrok", lat: -3.625, lng: 102.495, risk: "Kritis", category: "SARA", desc: "Pemicu: Isu hoaks di media sosial." }
   ];
 
   mockReports.forEach(report => {
     const marker = L.circleMarker([report.lat, report.lng], {
-      radius: 8,
+      radius: 9,
       fillColor: RISK_COLORS[report.risk],
       color: '#fff',
       weight: 2,
       opacity: 1,
-      fillOpacity: 0.9
+      fillOpacity: 0.95
     }).addTo(markersLayer);
 
-    // Simpan data di options untuk filter
+    // Simpan metadata untuk filter
     marker.options.risk = report.risk;
     marker.options.category = report.category;
 
     marker.bindPopup(`
-      <div class="popup-title">${report.title}</div>
-      <div>Kategori: ${report.category}</div>
-      <span class="popup-risk" style="background:${RISK_COLORS[report.risk]};color:#fff">${report.risk}</span>
+      <div style="min-width:200px">
+        <strong style="display:block;margin-bottom:4px">${report.title}</strong>
+        <div style="font-size:0.9em;color:#475569">Kategori: ${report.category}</div>
+        <span style="display:inline-block;margin-top:6px;padding:2px 8px;border-radius:999px;font-size:0.75em;font-weight:600;background:${RISK_COLORS[report.risk]};color:#fff">${report.risk}</span>
+      </div>
     `);
 
     marker.on('click', () => openMapModal(report));
   });
 }
 
-// 🔍 Filter Logic
+// 🔍 Filter Logic (client-side untuk mock data)
 function applyFilters() {
   const selectedRisks = Array.from(document.querySelectorAll('.filter-risk:checked')).map(cb => cb.value);
   const selectedCats = Array.from(document.querySelectorAll('.filter-cat:checked')).map(cb => cb.value);
@@ -134,45 +154,53 @@ function applyFilters() {
   });
 }
 
-// 📖 Modal Detail Peta
+// 📖 Modal Detail (ringkas)
 function openMapModal(data) {
   document.getElementById('modalTitle').textContent = data.title;
   document.getElementById('modalBody').innerHTML = `
-    <div class="modal-meta">
-      <span class="meta-label">Lokasi</span><span class="meta-value">${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}</span>
-      <span class="meta-label">Kategori</span><span class="meta-value">${data.category}</span>
-      <span class="meta-label">Risiko</span><span class="meta-value" style="color:${RISK_COLORS[data.risk]};font-weight:600">${data.risk}</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;font-size:0.9em">
+      <div><span style="color:#64748b">Koordinat</span><br><strong>${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}</strong></div>
+      <div><span style="color:#64748b">Kategori</span><br><strong>${data.category}</strong></div>
+      <div><span style="color:#64748b">Risiko</span><br><strong style="color:${RISK_COLORS[data.risk]}">${data.risk}</strong></div>
+      <div><span style="color:#64748b">Status</span><br><strong>Baru</strong></div>
     </div>
-    <p class="meta-desc">${data.desc}</p>
+    <p style="margin:0;line-height:1.5">${data.desc}</p>
   `;
   document.getElementById('mapDetailModal').classList.remove('d-none');
 }
 
-// 📍 Geolocation (Dibatasi agar tidak error jika di luar Kepahiang)
+// 📍 Geolocation (dengan validasi batas Kepahiang)
 function locateUser() {
   if (!navigator.geolocation) {
-    alert("Geolocation tidak didukung browser Anda.");
+    (window.app?.showToast || alert)('Geolocation tidak didukung', 'warning');
     return;
   }
+  
   navigator.geolocation.getCurrentPosition(
     pos => {
       const { latitude, longitude } = pos.coords;
       
-      // Cek apakah lokasi user masih dalam batas Kepahiang
-      const inBounds = latitude >= MAP_CONFIG.bounds[0][0] && latitude <= MAP_CONFIG.bounds[1][0] &&
-                       longitude >= MAP_CONFIG.bounds[0][1] && longitude <= MAP_CONFIG.bounds[1][1];
+      // Validasi: apakah lokasi dalam batas Kepahiang?
+      const inBounds = 
+        latitude >= MAP_CONFIG.bounds[0][0] && latitude <= MAP_CONFIG.bounds[1][0] &&
+        longitude >= MAP_CONFIG.bounds[0][1] && longitude <= MAP_CONFIG.bounds[1][1];
       
       if (inBounds) {
         map.setView([latitude, longitude], 13);
-        L.circle([latitude, longitude], {
-          color: '#1e40af', fillColor: '#3b82f6', fillOpacity: 0.5, radius: 50
+        L.circleMarker([latitude, longitude], {
+          radius: 10,
+          color: '#1e40af',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.6,
+          weight: 2
         }).addTo(map).bindPopup("📍 Lokasi Anda").openPopup();
-      } else {
-        // Cek apakah window.app tersedia sebelum showToast
+        
         if (window.app?.showToast) {
-          window.app.showToast('⚠️ Lokasi Anda di luar wilayah Kabupaten Kepahiang', 'warning');
-        } else {
-          alert('⚠️ Lokasi Anda di luar wilayah Kabupaten Kepahiang');
+          window.app.showToast('✅ Lokasi ditemukan dalam wilayah Kepahiang', 'success');
+        }
+      } else {
+        if (window.app?.showToast) {
+          window.app.showToast('⚠️ Lokasi di luar Kabupaten Kepahiang', 'warning');
         }
         map.setView(MAP_CONFIG.center, MAP_CONFIG.zoom);
       }
@@ -181,45 +209,67 @@ function locateUser() {
   );
 }
 
-// 🔄 Event Listeners UI
+// 🔄 Event Listeners UI (dengan optional chaining aman)
 document.addEventListener('DOMContentLoaded', () => {
-  // Pastikan elemen #map ada sebelum inisialisasi peta
+  // Hanya inisialisasi peta jika elemen #map ada
   if (document.getElementById('map')) {
     initMap();
   }
 
-  // Toggle Sidebar
-  document.getElementById('toggleSidebar')?.addEventListener('click', () => {
+  // Toggle Sidebar (mobile)
+  document.getElementById('toggleSidebar')?.addEventListener('click', (e) => {
+    e.stopPropagation();
     document.querySelector('.sidebar')?.classList.toggle('open');
   });
 
-  // Filter Panel
-  document.getElementById('btnToggleFilters')?.addEventListener('click', () => {
-    document.getElementById('filterPanel')?.classList.toggle('open');
+  // Filter Panel - Slide from RIGHT (tidak bentrok dengan zoom control kiri)
+  const filterPanel = document.getElementById('filterPanel');
+  const btnToggleFilters = document.getElementById('btnToggleFilters');
+  const btnCloseFilter = document.getElementById('closeFilterPanel');
+  
+  btnToggleFilters?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    filterPanel?.classList.toggle('open');
   });
-  document.getElementById('closeFilterPanel')?.addEventListener('click', () => {
-    document.getElementById('filterPanel')?.classList.remove('open');
+  
+  btnCloseFilter?.addEventListener('click', () => {
+    filterPanel?.classList.remove('open');
   });
+  
+  // Tutup panel jika klik di luar
+  document.addEventListener('click', (e) => {
+    if (filterPanel?.classList.contains('open') && 
+        !filterPanel.contains(e.target) && 
+        e.target !== btnToggleFilters) {
+      filterPanel.classList.remove('open');
+    }
+  });
+
   document.getElementById('applyFilters')?.addEventListener('click', () => {
     applyFilters();
-    document.getElementById('filterPanel')?.classList.remove('open');
+    filterPanel?.classList.remove('open');
   });
 
-  // Geolocation
+  // Geolocation & Reset View
   document.getElementById('btnLocateMe')?.addEventListener('click', locateUser);
-
-  // Reset View
+  
   document.getElementById('btnResetView')?.addEventListener('click', () => {
-    if (map) map.setView(MAP_CONFIG.center, MAP_CONFIG.zoom);
+    map?.setView(MAP_CONFIG.center, MAP_CONFIG.zoom);
   });
 
-  // Modal Close
+  // Modal handling
   document.getElementById('closeMapModal')?.addEventListener('click', () => {
     document.getElementById('mapDetailModal')?.classList.add('d-none');
   });
-  document.getElementById('btnPrintModal')?.addEventListener('click', () => window.print());
+  
+  document.getElementById('mapDetailModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'mapDetailModal') {
+      e.target.classList.add('d-none');
+    }
+  });
 
-  // Logout
+  // Print & Logout
+  document.getElementById('btnPrintModal')?.addEventListener('click', () => window.print());
   document.getElementById('btnLogout')?.addEventListener('click', () => {
     window.location.href = 'login.html';
   });
