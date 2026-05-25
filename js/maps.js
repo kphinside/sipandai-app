@@ -275,14 +275,11 @@ if (btnCloseFilter) {
     filterPanel.classList.remove('open');
   });
 }
-
-if (btnApplyFilters) {
-  btnApplyFilters.addEventListener('click', () => {
-    applyFilters();
-    filterPanel.classList.remove('open');
-  });
-}
-
+document.getElementById('applyFilters')?.addEventListener('click', () => {
+  applyFilters();
+  filterPanel?.classList.remove('open');
+});
+  
 // Tutup panel jika klik di luar
 document.addEventListener('click', (e) => {
   if (filterPanel && filterPanel.classList.contains('open') && 
