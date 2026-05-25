@@ -71,27 +71,27 @@
               <input type="text" id="laporanJudul" name="judul" class="form-control" placeholder="Contoh: Konflik Lahan di Desa X" required>
             </div>
 
-            <!-- Kecamatan & Desa -->
+            <!-- Kecamatan & Desa (Cascading Dropdown) -->
             <div class="form-group">
               <label for="laporanKecamatan">Kecamatan *</label>
-<select id="laporanKecamatan" name="kecamatan_id" class="form-control" required>
-  <option value="">Pilih Kecamatan</option>
-  <!-- Akan diisi otomatis oleh JS dari Supabase -->
-</select>
+              <select id="laporanKecamatan" name="kecamatan_id" class="form-control" required>
+                <option value="">Pilih Kecamatan *</option>
+                <!-- Diisi otomatis oleh JS dari Supabase -->
+              </select>
             </div>
             <div class="form-group">
               <label for="laporanDesa">Desa / Kelurahan *</label>
-              <select id="laporanDesa" name="desa_id" class="form-control" required>
-                <option value="">Pilih Desa</option>
-                <!-- Akan diisi dinamis via JS berdasarkan kecamatan -->
+              <select id="laporanDesa" name="desa_id" class="form-control" required disabled>
+                <option value="">Pilih Kecamatan Dulu</option>
+                <!-- Diisi otomatis setelah kecamatan dipilih -->
               </select>
             </div>
 
-            <!-- Kategori & Risiko -->
+            <!-- Kategori & Risiko (Opsional dengan Default) -->
             <div class="form-group">
               <label for="laporanKategori">Kategori Konflik</label>
               <select id="laporanKategori" name="kategori" class="form-control">
-                <option value="">Pilih Kategori</option>
+                <option value="">Pilih Kategori (Opsional)</option>
                 <option value="SARA">SARA / Sosial</option>
                 <option value="Ekonomi">Ekonomi / Agraria</option>
                 <option value="Politik">Politik / Pilkada</option>
@@ -102,8 +102,8 @@
             <div class="form-group">
               <label for="laporanRisiko">Tingkat Risiko</label>
               <select id="laporanRisiko" name="tingkat_risiko" class="form-control">
+                <option value="Sedang">🟡 Sedang (Default)</option>
                 <option value="Rendah">🟢 Rendah</option>
-                <option value="Sedang">🟡 Sedang</option>
                 <option value="Tinggi">🔴 Tinggi</option>
                 <option value="Kritis">🚨 Kritis</option>
               </select>
@@ -226,7 +226,24 @@
         <!-- Diisi dinamis via JS -->
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" id="updateStatusBtn">🔄 Update Status</button>
+        <!-- Section Update Status (muncul hanya jika user berhak) -->
+        <div id="modalUpdateSection" class="d-none" style="margin-bottom:1rem;padding:0.75rem;background:#f8fafc;border-radius:8px">
+          <label style="display:block;font-weight:600;margin-bottom:0.5rem">🔄 Update Status Laporan</label>
+          <input type="hidden" id="updateReportId">
+          <select id="updateStatusSelect" class="form-control" style="margin-bottom:0.5rem">
+            <option value="baru">Baru</option>
+            <option value="diproses">Diproses</option>
+            <option value="selesai">Selesai</option>
+            <option value="ditutup">Ditutup</option>
+          </select>
+          <button type="button" class="btn-primary btn-sm" onclick="document.getElementById('formUpdateStatus')?.requestSubmit()">💾 Simpan Perubahan</button>
+        </div>
+        
+        <form id="formUpdateStatus" style="display:none">
+          <!-- Form hidden untuk trigger submit via JS -->
+        </form>
+        
+        <button class="btn-secondary" id="closeModalBtn">Tutup</button>
         <button class="btn-outline" id="printBtn">🖨️ Cetak</button>
       </div>
     </div>
