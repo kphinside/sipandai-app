@@ -72,66 +72,64 @@ function initMap() {
   }
 }
 
-// 📍 Mock Data Marker (dalam batas Kepahiang)
 function loadMockMarkers() {
-  //  Mock Data Marker (SEMUA DALAM BATAS KEPahiang)
-const mockReports = [
-  { 
-    id: 1, 
-    title: "Konflik Lahan Desa Talang Bencah", 
-    lat: -3.652, 
-    lng: 102.558, 
-    risk: "Tinggi", 
-    category: "Ekonomi", 
-    desc: "Sengketa batas lahan pertanian antar warga Desa Talang Bencah, Kecamatan Kepahiang.",
-    kecamatan: "Kepahiang"
-  },
-  { 
-    id: 2, 
-    title: "Protes Pembangunan Jalan", 
-    lat: -3.671689, 
-    lng: 102.632107, 
-    risk: "Sedang", 
-    category: "Politik", 
-    desc: "Masyarakat menuntut transparansi anggaran pembangunan jalan di Kecamatan Tebat Karai.",
-    kecamatan: "Tebat Karai"
-  },
-  { 
-    id: 3, 
-    title: "Potensi Konflik Antar Kampung", 
-    lat: -3.689175, 
-    lng: 102.717906, 
-    risk: "Kritis", 
-    category: "SARA", 
-    desc: "Tensi meningkat akibat isu hoaks yang tersebar di media sosial, Kecamatan Bermani Ilir.",
-    kecamatan: "Bermani Ilir"
-  },
-  { 
-    id: 4, 
-    title: "Sengketa Sumber Daya Air", 
-    lat: -3.499904, 
-    lng: 102.515104,
-    risk: "Sedang", 
-    category: "Ekonomi", 
-    desc: "Konflik pembagian irigasi antara petani hulu dan hilir di Kecamatan Merigi.",
-    kecamatan: "Merigi"
-  },
-  { 
-    id: 5, 
-    title: "Demonstrasi Tuntutan Layanan", 
-    lat: -3.599833,
-    lng: 102.615729, 
-    risk: "Rendah", 
-    category: "Politik", 
-    desc: "Warga Kecamatan Kabawetan menuntut perbaikan layanan kesehatan puskesmas.",
-    kecamatan: "Kabawetan"
-  }
-];
+  const mockReports = [
+    { 
+      id: 1, 
+      title: "Konflik Lahan Desa Talang Bencah", 
+      lat: -3.652, 
+      lng: 102.558, 
+      risk: "Tinggi", 
+      category: "Ekonomi", 
+      desc: "Sengketa batas lahan pertanian antar warga Desa Talang Bencah, Kecamatan Kepahiang.",
+      kecamatan: "Kepahiang"
+    },
+    { 
+      id: 2, 
+      title: "Protes Pembangunan Jalan", 
+      lat: -3.671689, 
+      lng: 102.632107, 
+      risk: "Sedang", 
+      category: "Politik", 
+      desc: "Masyarakat menuntut transparansi anggaran pembangunan jalan di Kecamatan Tebat Karai.",
+      kecamatan: "Tebat Karai"
+    },
+    { 
+      id: 3, 
+      title: "Potensi Konflik Antar Kampung", 
+      lat: -3.689175, 
+      lng: 102.717906, 
+      risk: "Kritis", 
+      category: "SARA", 
+      desc: "Tensi meningkat akibat isu hoaks yang tersebar di media sosial, Kecamatan Bermani Ilir.",
+      kecamatan: "Bermani Ilir"
+    },
+    { 
+      id: 4, 
+      title: "Sengketa Sumber Daya Air", 
+      lat: -3.599904,  // ✅ Diubah dari -3.499904 (terlalu utara)
+      lng: 102.515104,
+      risk: "Sedang", 
+      category: "Ekonomi", 
+      desc: "Konflik pembagian irigasi antara petani hulu dan hilir di Kecamatan Merigi.",
+      kecamatan: "Merigi"
+    },
+    { 
+      id: 5, 
+      title: "Demonstrasi Tuntutan Layanan", 
+      lat: -3.599833,
+      lng: 102.615729, 
+      risk: "Rendah", 
+      category: "Politik", 
+      desc: "Warga Kecamatan Kabawetan menuntut perbaikan layanan kesehatan puskesmas.",
+      kecamatan: "Kabawetan"
+    }
+  ];
 
   mockReports.forEach(report => {
     const marker = L.circleMarker([report.lat, report.lng], {
       radius: 9,
-      fillColor: RISK_COLORS[report.risk],
+      fillColor: RISK_COLORS[report.risk],  // ✅ Warna dari konstanta
       color: '#fff',
       weight: 2,
       opacity: 1,
@@ -142,6 +140,7 @@ const mockReports = [
     marker.options.risk = report.risk;
     marker.options.category = report.category;
 
+    // Popup dengan warna risk badge
     marker.bindPopup(`
       <div style="min-width:200px">
         <strong style="display:block;margin-bottom:4px">${report.title}</strong>
