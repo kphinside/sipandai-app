@@ -12,18 +12,16 @@ const RISK_COLORS = {
   'Rendah': '#22c55e'
 };
 
-// 🌍 Konfigurasi Peta (BOUNDS AKURAT untuk Kab. Kepahiang)
-// Sumber: Geocoding BPS + Google Maps referensi
-// 🌍 Konfigurasi Peta (BOUNDS SANGAT KETAT untuk Kab. Kepahiang)
+// 🌍 Konfigurasi Peta (BOUNDS KETAT sesuai koordinat manual Anda)
 const MAP_CONFIG = {
-  center: [-3.625, 102.565], // Titik tengah Kepahiang
+  center: [-3.648, 102.626], // Titik tengah dari 6 koordinat Anda
   zoom: 11,
   minZoom: 10,
   maxZoom: 15,
-  // 🔒 Batas KETAT: hanya wilayah Kepahiang
+  // 🔒 Batas: [South-West [minLat, minLng], North-East [maxLat, maxLng]]
   bounds: [
-    [-3.720, 102.470], // SW: Selatan-Barat (Muara Kemumu-Kabawetan)
-    [-3.530, 102.660]  // NE: Utara-Timur (Kepahiang-Bermani Ilir)
+    [-3.798060, 102.443051], // Bawah-Kiri (Selatan-Barat)
+    [-3.497891, 102.808862]  // Atas-Kanan (Utara-Timur)
   ],
   tileLayer: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   attribution: '&copy; OpenStreetMap • SIPANDAI Kepahiang'
