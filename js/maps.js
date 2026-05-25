@@ -107,11 +107,59 @@ function loadMockZones() {
 
 // 📍 Mock Data Marker (dalam batas Kepahiang)
 function loadMockMarkers() {
-  const mockReports = [
-    { id: 1, title: "Konflik Lahan Desa X", lat: -3.652, lng: 102.558, risk: "Tinggi", category: "Ekonomi", desc: "Sengketa batas lahan antar warga." },
-    { id: 2, title: "Protes Infrastruktur", lat: -3.710, lng: 102.545, risk: "Sedang", category: "Politik", desc: "Tuntutan perbaikan jalan rusak." },
-    { id: 3, title: "Potensi Bentrok", lat: -3.625, lng: 102.495, risk: "Kritis", category: "SARA", desc: "Pemicu: Isu hoaks di media sosial." }
-  ];
+  //  Mock Data Marker (SEMUA DALAM BATAS KEPahiang)
+const mockReports = [
+  { 
+    id: 1, 
+    title: "Konflik Lahan Desa Talang Bencah", 
+    lat: -3.652, 
+    lng: 102.558, 
+    risk: "Tinggi", 
+    category: "Ekonomi", 
+    desc: "Sengketa batas lahan pertanian antar warga Desa Talang Bencah, Kecamatan Kepahiang.",
+    kecamatan: "Kepahiang"
+  },
+  { 
+    id: 2, 
+    title: "Protes Pembangunan Jalan", 
+    lat: -3.625, 
+    lng: 102.578, 
+    risk: "Sedang", 
+    category: "Politik", 
+    desc: "Masyarakat menuntut transparansi anggaran pembangunan jalan di Kecamatan Tebat Karai.",
+    kecamatan: "Tebat Karai"
+  },
+  { 
+    id: 3, 
+    title: "Potensi Konflik Antar Kampung", 
+    lat: -3.685, 
+    lng: 102.525, 
+    risk: "Kritis", 
+    category: "SARA", 
+    desc: "Tensi meningkat akibat isu hoaks yang tersebar di media sosial, Kecamatan Bermani Ilir.",
+    kecamatan: "Bermani Ilir"
+  },
+  { 
+    id: 4, 
+    title: "Sengketa Sumber Daya Air", 
+    lat: -3.638, 
+    lng: 102.595, 
+    risk: "Sedang", 
+    category: "Ekonomi", 
+    desc: "Konflik pembagian irigasi antara petani hulu dan hilir di Kecamatan Merigi.",
+    kecamatan: "Merigi"
+  },
+  { 
+    id: 5, 
+    title: "Demonstrasi Tuntutan Layanan", 
+    lat: -3.705, 
+    lng: 102.548, 
+    risk: "Rendah", 
+    category: "Politik", 
+    desc: "Warga Kecamatan Kabawetan menuntut perbaikan layanan kesehatan puskesmas.",
+    kecamatan: "Kabawetan"
+  }
+];
 
   mockReports.forEach(report => {
     const marker = L.circleMarker([report.lat, report.lng], {
