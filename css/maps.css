@@ -138,56 +138,6 @@
   accent-color: var(--primary);
 }
 
-/* 🗺️ Legend - KANAN BAWAH (jauh dari controls kiri & zoom) */
-.map-legend {
-  position: absolute;
-  bottom: 20px;
-  right: 12px;  /* ✅ PINDAH KE KANAN */
-  background: #fff;
-  padding: 0.75rem 1rem;
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  z-index: 1000;
-  font-size: 0.85rem;
-  min-width: 170px;
-  border: 1px solid var(--border);
-}
-
-.map-legend h4 {
-  margin: 0 0 0.5rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0.35rem 0;
-}
-
-.legend-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.legend-dot.kritis { background: #991b1b; }
-.legend-dot.tinggi { background: #dc2626; }
-.legend-dot.sedang { background: #eab308; }
-.legend-dot.rendah { background: #22c55e; }
-
-.legend-marker {
-  width: 14px;
-  height: 14px;
-  background: #1e40af;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 2px rgba(30,64,175,0.3);
-  display: inline-block;
-}
-
 /* 📦 Modal */
 .map-modal { max-width: 480px; }
 
