@@ -1,7 +1,7 @@
 /**
  * js/maps.js
- * Peta SIPANDAI - Fokus Kabupaten Kepahiang + UI Controls Terkoordinasi
- * ✅ Bounds akurat ✅ Controls tidak bentrok ✅ Responsive mobile
+ * Peta SIPANDAI - Fokus Kabupaten Kepahiang
+ * ✅ Tanpa polygon zona ✅ Marker berwarna ✅ Bounds akurat ✅ UI rapi
  */
 
 // 🎨 Warna Risiko (konstan)
@@ -12,22 +12,22 @@ const RISK_COLORS = {
   'Rendah': '#22c55e'
 };
 
-// 🌍 Konfigurasi Peta (BOUNDS KETAT sesuai koordinat manual Anda)
+// 🌍 Konfigurasi Peta (BOUNDS EXACT dari 6 koordinat Anda)
 const MAP_CONFIG = {
-  center: [-3.648, 102.626], // Titik tengah dari 6 koordinat Anda
+  center: [-3.648, 102.626],
   zoom: 11,
   minZoom: 10,
   maxZoom: 15,
-  // 🔒 Batas: [South-West [minLat, minLng], North-East [maxLat, maxLng]]
+  // 🔒 Batas: [South-West, North-East]
   bounds: [
-    [-3.798060, 102.443051], // Bawah-Kiri (Selatan-Barat)
-    [-3.544325, 102.665886]  // Atas-Kanan (Utara-Timur)
+    [-3.798060, 102.443051], // Selatan-Barat
+    [-3.497891, 102.808862]  // Utara-Timur (FIXED!)
   ],
   tileLayer: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   attribution: '&copy; OpenStreetMap • SIPANDAI Kepahiang'
 };
 
-let map, zonesLayer, markersLayer;
+let map, markersLayer; // ❌ Hapus zonesLayer karena polygon dihapus
 
 // 🚀 Inisialisasi Peta
 function initMap() {
@@ -37,13 +37,13 @@ function initMap() {
     minZoom: MAP_CONFIG.minZoom,
     maxZoom: MAP_CONFIG.maxZoom,
     maxBounds: MAP_CONFIG.bounds,
-    maxBoundsViscosity: 1.0, // "Bouncing" keras saat coba drag keluar batas
-    zoomControl: false,      // Kita tempatkan manual agar tidak bentrok
+    maxBoundsViscosity: 1.0,
+    zoomControl: false,
     zoomSnap: 0.5,
     zoomDelta: 0.5
   });
 
-  // ✅ Tempatkan zoom control di pojok kanan BAWAH (tidak bentrok dengan filter)
+  // Zoom control di kanan bawah
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
   // Base Layer
@@ -52,26 +52,14 @@ function initMap() {
     maxZoom: MAP_CONFIG.maxZoom
   }).addTo(map);
 
-  // Layer Groups
-  zonesLayer = L.featureGroup().addTo(map);
+  // ✅ Hanya markersLayer (polygon dihapus)
   markersLayer = L.featureGroup().addTo(map);
 
-  // Load Mock Data (nanti diganti fetch Supabase)
-  loadMockZones();
+  // Load Mock Markers saja
   loadMockMarkers();
-  
-  // Fit view ke data jika ada, tetap dalam batas Kepahiang
-  if (zonesLayer.getLayers().length > 0 || markersLayer.getLayers().length > 0) {
-    const group = L.featureGroup([...zonesLayer.getLayers(), ...markersLayer.getLayers()]);
-    const bounds = group.getBounds().pad(0.15); // padding 15% agar tidak mepet edge
-    // Hanya fit jika bounds masih dalam area Kepahiang
-    if (MAP_CONFIG.bounds[0][0] <= bounds.getSouthWest().lat && 
-        bounds.getNorthEast().lat <= MAP_CONFIG.bounds[1][0]) {
-      map.fitBounds(bounds);
-    }
-  }
 }
 
+// 📍 Mock Data Marker (SEMUA DALAM BATAS KEPahiang)
 function loadMockMarkers() {
   const mockReports = [
     { 
@@ -107,7 +95,7 @@ function loadMockMarkers() {
     { 
       id: 4, 
       title: "Sengketa Sumber Daya Air", 
-      lat: -3.599904,  // ✅ Diubah dari -3.499904 (terlalu utara)
+      lat: -3.599904,
       lng: 102.515104,
       risk: "Sedang", 
       category: "Ekonomi", 
@@ -128,8 +116,8 @@ function loadMockMarkers() {
 
   mockReports.forEach(report => {
     const marker = L.circleMarker([report.lat, report.lng], {
-      radius: 9,
-      fillColor: RISK_COLORS[report.risk],  // ✅ Warna dari konstanta
+      radius: 10, // Sedikit diperbesar agar jelas
+      fillColor: RISK_COLORS[report.risk],
       color: '#fff',
       weight: 2,
       opacity: 1,
@@ -140,20 +128,26 @@ function loadMockMarkers() {
     marker.options.risk = report.risk;
     marker.options.category = report.category;
 
-    // Popup dengan warna risk badge
+    // Popup dengan badge warna
     marker.bindPopup(`
-      <div style="min-width:200px">
-        <strong style="display:block;margin-bottom:4px">${report.title}</strong>
-        <div style="font-size:0.9em;color:#475569">Kategori: ${report.category}</div>
-        <span style="display:inline-block;margin-top:6px;padding:2px 8px;border-radius:999px;font-size:0.75em;font-weight:600;background:${RISK_COLORS[report.risk]};color:#fff">${report.risk}</span>
+      <div style="min-width:220px">
+        <strong style="display:block;margin-bottom:6px;font-size:1em">${report.title}</strong>
+        <div style="font-size:0.85em;color:#475569;margin-bottom:4px">📍 ${report.kecamatan}</div>
+        <div style="font-size:0.85em;color:#475569;margin-bottom:8px">Kategori: ${report.category}</div>
+        <span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:0.75em;font-weight:600;background:${RISK_COLORS[report.risk]};color:#fff">${report.risk}</span>
       </div>
     `);
 
     marker.on('click', () => openMapModal(report));
   });
+
+  // Auto-fit view ke semua marker (dalam batas)
+  if (markersLayer.getLayers().length > 0) {
+    map.fitBounds(markersLayer.getBounds().pad(0.2));
+  }
 }
 
-// 🔍 Filter Logic (client-side untuk mock data)
+// 🔍 Filter Logic
 function applyFilters() {
   const selectedRisks = Array.from(document.querySelectorAll('.filter-risk:checked')).map(cb => cb.value);
   const selectedCats = Array.from(document.querySelectorAll('.filter-cat:checked')).map(cb => cb.value);
@@ -164,45 +158,39 @@ function applyFilters() {
     const risk = marker.options.risk || 'Sedang';
     const cat = marker.options.category || 'Lainnya';
     
-    const showRisk = selectedRisks.includes(risk);
-    const showCat = selectedCats.includes(cat);
+    const show = selectedRisks.includes(risk) && selectedCats.includes(cat);
     
-    if (showRisk && showCat) {
-      marker.addTo(markersLayer);
+    if (show) {
+      if (!markersLayer.hasLayer(marker)) {
+        marker.addTo(markersLayer);
+      }
       visibleCount++;
     } else {
       markersLayer.removeLayer(marker);
     }
   });
   
-  // Feedback ke user
   if (window.app?.showToast) {
-    window.app.showToast(`🔍 Menampilkan ${visibleCount} laporan sesuai filter`, 'info');
+    window.app.showToast(`🔍 Menampilkan ${visibleCount} laporan`, 'info');
   }
-  
-  console.log('Filter diterapkan:', { 
-    risiko: selectedRisks, 
-    kategori: selectedCats, 
-    visible: visibleCount 
-  });
 }
 
-// 📖 Modal Detail (ringkas)
+// 📖 Modal Detail
 function openMapModal(data) {
   document.getElementById('modalTitle').textContent = data.title;
   document.getElementById('modalBody').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;font-size:0.9em">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;font-size:0.9em">
       <div><span style="color:#64748b">Koordinat</span><br><strong>${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}</strong></div>
+      <div><span style="color:#64748b">Kecamatan</span><br><strong>${data.kecamatan}</strong></div>
       <div><span style="color:#64748b">Kategori</span><br><strong>${data.category}</strong></div>
       <div><span style="color:#64748b">Risiko</span><br><strong style="color:${RISK_COLORS[data.risk]}">${data.risk}</strong></div>
-      <div><span style="color:#64748b">Status</span><br><strong>Baru</strong></div>
     </div>
-    <p style="margin:0;line-height:1.5">${data.desc}</p>
+    <p style="margin:0;line-height:1.5;color:#1e293b">${data.desc}</p>
   `;
   document.getElementById('mapDetailModal').classList.remove('d-none');
 }
 
-// 📍 Geolocation (dengan validasi batas Kepahiang)
+// 📍 Geolocation
 function locateUser() {
   if (!navigator.geolocation) {
     (window.app?.showToast || alert)('Geolocation tidak didukung', 'warning');
@@ -213,7 +201,6 @@ function locateUser() {
     pos => {
       const { latitude, longitude } = pos.coords;
       
-      // Validasi: apakah lokasi dalam batas Kepahiang?
       const inBounds = 
         latitude >= MAP_CONFIG.bounds[0][0] && latitude <= MAP_CONFIG.bounds[1][0] &&
         longitude >= MAP_CONFIG.bounds[0][1] && longitude <= MAP_CONFIG.bounds[1][1];
@@ -242,66 +229,56 @@ function locateUser() {
   );
 }
 
-// 🔄 Event Listeners UI (dengan optional chaining aman)
+// 🔄 Event Listeners (BERSIH, TANPA DUPLIKAT)
 document.addEventListener('DOMContentLoaded', () => {
-  // Hanya inisialisasi peta jika elemen #map ada
   if (document.getElementById('map')) {
     initMap();
   }
 
-  // Toggle Sidebar (mobile)
+  // Sidebar toggle
   document.getElementById('toggleSidebar')?.addEventListener('click', (e) => {
     e.stopPropagation();
     document.querySelector('.sidebar')?.classList.toggle('open');
   });
 
-// Pastikan event listener ini ada di document.addEventListener('DOMContentLoaded', ...)
+  // Filter Panel
+  const btnToggleFilters = document.getElementById('btnToggleFilters');
+  const filterPanel = document.getElementById('filterPanel');
+  const btnCloseFilter = document.getElementById('closeFilterPanel');
+  const btnApplyFilters = document.getElementById('applyFilters');
 
-// Filter Panel Toggle
-const btnToggleFilters = document.getElementById('btnToggleFilters');
-const filterPanel = document.getElementById('filterPanel');
-const btnCloseFilter = document.getElementById('closeFilterPanel');
-const btnApplyFilters = document.getElementById('applyFilters');
-
-if (btnToggleFilters && filterPanel) {
-  btnToggleFilters.addEventListener('click', (e) => {
+  btnToggleFilters?.addEventListener('click', (e) => {
     e.stopPropagation();
-    filterPanel.classList.toggle('open');
+    filterPanel?.classList.toggle('open');
   });
-}
 
-if (btnCloseFilter) {
-  btnCloseFilter.addEventListener('click', () => {
-    filterPanel.classList.remove('open');
+  btnCloseFilter?.addEventListener('click', () => {
+    filterPanel?.classList.remove('open');
   });
-}
-document.getElementById('applyFilters')?.addEventListener('click', () => {
-  applyFilters();
-  filterPanel?.classList.remove('open');
-});
-  
-// Tutup panel jika klik di luar
-document.addEventListener('click', (e) => {
-  if (filterPanel && filterPanel.classList.contains('open') && 
-      !filterPanel.contains(e.target) && 
-      e.target !== btnToggleFilters) {
-    filterPanel.classList.remove('open');
-  }
-});
 
-  document.getElementById('applyFilters')?.addEventListener('click', () => {
+  // ✅ HANYA SATU listener untuk applyFilters
+  btnApplyFilters?.addEventListener('click', () => {
     applyFilters();
     filterPanel?.classList.remove('open');
   });
 
-  // Geolocation & Reset View
+  // Tutup panel jika klik di luar
+  document.addEventListener('click', (e) => {
+    if (filterPanel?.classList.contains('open') && 
+        !filterPanel.contains(e.target) && 
+        e.target !== btnToggleFilters) {
+      filterPanel.classList.remove('open');
+    }
+  });
+
+  // Geolocation & Reset
   document.getElementById('btnLocateMe')?.addEventListener('click', locateUser);
   
   document.getElementById('btnResetView')?.addEventListener('click', () => {
     map?.setView(MAP_CONFIG.center, MAP_CONFIG.zoom);
   });
 
-  // Modal handling
+  // Modal
   document.getElementById('closeMapModal')?.addEventListener('click', () => {
     document.getElementById('mapDetailModal')?.classList.add('d-none');
   });
