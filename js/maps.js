@@ -43,7 +43,6 @@ function initMap() {
     zoomDelta: 0.5
   });
 
-  // Zoom control di kanan bawah
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
   // Base Layer
@@ -52,99 +51,120 @@ function initMap() {
     maxZoom: MAP_CONFIG.maxZoom
   }).addTo(map);
 
-  // ✅ Hanya markersLayer (polygon dihapus)
+  // Layer Groups
   markersLayer = L.featureGroup().addTo(map);
 
-  // Load Mock Markers saja
-  loadMockMarkers();
+  // ✅ Load data REAL dari Supabase
+  loadMarkersFromSupabase();
 }
 
-// 📍 Mock Data Marker (SEMUA DALAM BATAS KEPahiang)
-function loadMockMarkers() {
-  const mockReports = [
-    { 
-      id: 1, 
-      title: "Konflik Lahan Desa Talang Bencah", 
-      lat: -3.652, 
-      lng: 102.558, 
-      risk: "Tinggi", 
-      category: "Ekonomi", 
-      desc: "Sengketa batas lahan pertanian antar warga Desa Talang Bencah, Kecamatan Kepahiang.",
-      kecamatan: "Kepahiang"
-    },
-    { 
-      id: 2, 
-      title: "Protes Pembangunan Jalan", 
-      lat: -3.671689, 
-      lng: 102.632107, 
-      risk: "Sedang", 
-      category: "Politik", 
-      desc: "Masyarakat menuntut transparansi anggaran pembangunan jalan di Kecamatan Tebat Karai.",
-      kecamatan: "Tebat Karai"
-    },
-    { 
-      id: 3, 
-      title: "Potensi Konflik Antar Kampung", 
-      lat: -3.689175, 
-      lng: 102.717906, 
-      risk: "Kritis", 
-      category: "SARA", 
-      desc: "Tensi meningkat akibat isu hoaks yang tersebar di media sosial, Kecamatan Bermani Ilir.",
-      kecamatan: "Bermani Ilir"
-    },
-    { 
-      id: 4, 
-      title: "Sengketa Sumber Daya Air", 
-      lat: -3.599904,
-      lng: 102.515104,
-      risk: "Sedang", 
-      category: "Ekonomi", 
-      desc: "Konflik pembagian irigasi antara petani hulu dan hilir di Kecamatan Merigi.",
-      kecamatan: "Merigi"
-    },
-    { 
-      id: 5, 
-      title: "Demonstrasi Tuntutan Layanan", 
-      lat: -3.599833,
-      lng: 102.615729, 
-      risk: "Rendah", 
-      category: "Politik", 
-      desc: "Warga Kecamatan Kabawetan menuntut perbaikan layanan kesehatan puskesmas.",
-      kecamatan: "Kabawetan"
+// 📍 Load Markers dari Supabase (REAL DATA)
+async function loadMarkersFromSupabase() {
+  try {
+    // Fetch laporan yang belum selesai (status: baru/diproses)
+    const { data, error } = await window.sbClient
+      .from('conflict_reports')
+      .select(`
+        id, judul, kategori, tingkat_risiko, deskripsi,
+        lokasi_lat, lokasi_lng, alamat_lokasi, status, created_at,
+        kecamatan (nama),
+        profiles (nama_lengkap)
+      `)
+      .eq('status', 'baru')
+      .or('status.eq.diproses')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      console.log('📭 Belum ada laporan untuk ditampilkan di peta');
+      return;
     }
-  ];
 
-  mockReports.forEach(report => {
-    const marker = L.circleMarker([report.lat, report.lng], {
-      radius: 10, // Sedikit diperbesar agar jelas
-      fillColor: RISK_COLORS[report.risk],
-      color: '#fff',
-      weight: 2,
-      opacity: 1,
-      fillOpacity: 0.95
-    }).addTo(markersLayer);
+    // Clear marker lama
+    markersLayer.clearLayers();
 
-    // Simpan metadata untuk filter
-    marker.options.risk = report.risk;
-    marker.options.category = report.category;
+    // Render marker untuk setiap laporan
+    data.forEach(report => {
+      // Skip jika koordinat tidak ada
+      if (!report.lokasi_lat || !report.lokasi_lng) {
+        console.warn(`⚠️ Laporan #${report.id} tidak memiliki koordinat`);
+        return;
+      }
 
-    // Popup dengan badge warna
-    marker.bindPopup(`
-      <div style="min-width:220px">
-        <strong style="display:block;margin-bottom:6px;font-size:1em">${report.title}</strong>
-        <div style="font-size:0.85em;color:#475569;margin-bottom:4px">📍 ${report.kecamatan}</div>
-        <div style="font-size:0.85em;color:#475569;margin-bottom:8px">Kategori: ${report.category}</div>
-        <span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:0.75em;font-weight:600;background:${RISK_COLORS[report.risk]};color:#fff">${report.risk}</span>
-      </div>
-    `);
+      const marker = L.circleMarker([report.lokasi_lat, report.lokasi_lng], {
+        radius: 10,
+        fillColor: RISK_COLORS[report.tingkat_risiko] || '#eab308',
+        color: '#fff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.95
+      }).addTo(markersLayer);
 
-    marker.on('click', () => openMapModal(report));
+      // Simpan metadata untuk filter
+      marker.options.risk = report.tingkat_risiko;
+      marker.options.category = report.kategori;
+      marker.options.id = report.id;
+
+      // Format tanggal
+      const tgl = new Date(report.created_at).toLocaleDateString('id-ID', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      });
+
+      // Popup dengan info lengkap
+      marker.bindPopup(`
+        <div style="min-width:250px">
+          <strong style="display:block;margin-bottom:6px;font-size:1.05em">${report.judul}</strong>
+          <div style="font-size:0.85em;color:#475569;margin-bottom:4px">📅 ${tgl}</div>
+          <div style="font-size:0.85em;color:#475569;margin-bottom:4px">📍 ${report.kecamatan?.nama || '-'} / ${report.alamat_lokasi || '-'}</div>
+          <div style="font-size:0.85em;color:#475569;margin-bottom:8px">👤 Pelapor: ${report.profiles?.nama_lengkap || '-'}</div>
+          <div style="margin-bottom:8px">
+            <span style="display:inline-block;padding:3px 8px;border-radius:999px;font-size:0.75em;font-weight:600;background:${RISK_COLORS[report.tingkat_risko] || '#eab308'};color:#fff;margin-right:4px">${report.tingkat_risiko}</span>
+            <span style="display:inline-block;padding:3px 8px;border-radius:999px;font-size:0.75em;font-weight:600;background:${report.status === 'baru' ? '#dbeafe' : '#fef3c7'};color:${report.status === 'baru' ? '#1e40af' : '#b45309'}">${report.status}</span>
+          </div>
+          <p style="margin:0;font-size:0.85em;line-height:1.4;color:#1e293b">${report.deskripsi || '-'}</p>
+        </div>
+      `);
+
+      // Click marker → buka modal detail
+      marker.on('click', () => openMapModalFromDB(report));
+    });
+
+    // Auto-fit view ke semua marker
+    if (markersLayer.getLayers().length > 0) {
+      map.fitBounds(markersLayer.getBounds().pad(0.2));
+    }
+
+    console.log(`✅ ${markersLayer.getLayers().length} marker berhasil dimuat dari database`);
+
+  } catch (err) {
+    console.error('❌ Gagal load markers dari Supabase:', err);
+    if (window.app?.showToast) {
+      window.app.showToast('Gagal memuat data peta', 'error');
+    }
+  }
+}
+
+// 📖 Modal Detail dari Database
+function openMapModalFromDB(data) {
+  const tgl = new Date(data.created_at).toLocaleDateString('id-ID', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
   });
 
-  // Auto-fit view ke semua marker (dalam batas)
-  if (markersLayer.getLayers().length > 0) {
-    map.fitBounds(markersLayer.getBounds().pad(0.2));
-  }
+  document.getElementById('modalTitle').textContent = data.judul;
+  document.getElementById('modalBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;font-size:0.9em">
+      <div><span style="color:#64748b">Tanggal</span><br><strong>${tgl}</strong></div>
+      <div><span style="color:#64748b">Koordinat</span><br><strong>${data.lokasi_lat?.toFixed(4) || '-'}, ${data.lokasi_lng?.toFixed(4) || '-'}</strong></div>
+      <div><span style="color:#64748b">Kecamatan</span><br><strong>${data.kecamatan?.nama || '-'}</strong></div>
+      <div><span style="color:#64748b">Desa/Lokasi</span><br><strong>${data.alamat_lokasi || '-'}</strong></div>
+      <div><span style="color:#64748b">Kategori</span><br><strong>${data.kategori}</strong></div>
+      <div><span style="color:#64748b">Risiko</span><br><strong style="color:${RISK_COLORS[data.tingkat_risiko] || '#eab308'}">${data.tingkat_risiko}</strong></div>
+      <div><span style="color:#64748b">Status</span><br><strong>${data.status}</strong></div>
+      <div><span style="color:#64748b">Pelapor</span><br><strong>${data.profiles?.nama_lengkap || '-'}</strong></div>
+    </div>
+    <p style="margin:0;line-height:1.5;color:#1e293b">${data.deskripsi || '-'}</p>
+  `;
+  document.getElementById('mapDetailModal').classList.remove('d-none');
 }
 
 // 🔍 Filter Logic
