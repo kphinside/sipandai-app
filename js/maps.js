@@ -14,18 +14,19 @@ const RISK_COLORS = {
 
 // 🌍 Konfigurasi Peta (BOUNDS AKURAT untuk Kab. Kepahiang)
 // Sumber: Geocoding BPS + Google Maps referensi
+// 🌍 Konfigurasi Peta (BOUNDS SANGAT KETAT untuk Kab. Kepahiang)
 const MAP_CONFIG = {
-  center: [-3.652, 102.558], // Titik tengah administratif Kepahiang
-  zoom: 11,                  // Zoom awal: cukup lihat 8 kecamatan
-  minZoom: 10,               // Mencegah zoom out ke Bengkulu/Rejang Lebong
-  maxZoom: 15,               // Detail maksimal untuk level desa
-  // 🔒 Batas ketat: [SouthWest [lat, lng], NorthEast [lat, lng]]
+  center: [-3.625, 102.565], // Titik tengah Kepahiang
+  zoom: 11,
+  minZoom: 10,
+  maxZoom: 15,
+  // 🔒 Batas KETAT: hanya wilayah Kepahiang
   bounds: [
-    [-3.745, 102.465], // Barat Daya: perbatasan Kabawetan-Muara Kemumu
-    [-3.560, 102.650]  // Timur Laut: perbatasan Kepahiang-Bermani Ilir
+    [-3.720, 102.470], // SW: Selatan-Barat (Muara Kemumu-Kabawetan)
+    [-3.530, 102.660]  // NE: Utara-Timur (Kepahiang-Bermani Ilir)
   ],
   tileLayer: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> • SIPANDAI Kepahiang'
+  attribution: '&copy; OpenStreetMap • SIPANDAI Kepahiang'
 };
 
 let map, zonesLayer, markersLayer;
