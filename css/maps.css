@@ -5,21 +5,24 @@
   background: #f1f5f9;
 }
 
+/* ===== FIX: IKAT SEMUA KONTROL KE DALAM AREA PETA ===== */
 .map-container {
+  position: relative; /* WAJIB: agar elemen absolute di dalamnya tetap di area peta */
   width: 100%;
   height: calc(100vh - 72px);
   z-index: 1;
+  overflow: hidden; /* Mencegah elemen keluar batas */
 }
 
-/* 🎛️ Map Controls - KIRI ATAS (jauh dari legend) */
 .map-controls {
   position: absolute;
-  top: 90px;
-  left: 12px;
-  z-index: 1000;
+  top: 15px;
+  left: 15px; /* Jarak dari kiri BATAS PETA, bukan dari browser */
+  z-index: 1000; /* Di atas peta, di bawah modal/sidebar */
   display: flex;
   flex-direction: column;
   gap: 8px;
+  pointer-events: auto; /* Pastikan tombol bisa diklik */
 }
 
 .control-btn {
@@ -35,6 +38,7 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
+  pointer-events: auto;
 }
 
 .control-btn:hover {
@@ -43,11 +47,26 @@
   color: var(--primary);
 }
 
-/* 🔍 Filter Panel - KANAN ATAS (tidak bentrok dengan controls kiri) */
+/* Legend tetap di kanan bawah (sesuai preferensi Anda) */
+.map-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 12px;
+  background: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 1000;
+  font-size: 0.85rem;
+  min-width: 170px;
+  border: 1px solid var(--border);
+}
+
+/* Filter panel tetap slide dari kanan */
 .filter-panel {
   position: absolute;
   top: 90px;
-  right: -320px;  /* Hidden by default */
+  right: -320px;
   width: 290px;
   background: #fff;
   border-radius: 12px;
