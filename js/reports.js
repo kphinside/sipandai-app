@@ -163,14 +163,14 @@ async function populateKecamatanDropdown() {
     // Fallback: opsi hardcoded (jika emergency)
     select.innerHTML = `
       <option value="">Pilih Kecamatan</option>
-      <option value="1">Kepahiang</option>
-      <option value="2">Tebat Karai</option>
-      <option value="3">Merigi</option>
-      <option value="4">Kabawetan</option>
-      <option value="5">Muara Kemumu</option>
-      <option value="6">Bermani Ilir</option>
-      <option value="7">Seberang Musi</option>
-      <option value="8">Ujan Mas</option>
+      <option value="8">Kepahiang</option>
+      <option value="9">Tebat Karai</option>
+      <option value="10">Merigi</option>
+      <option value="11">Kabawetan</option>
+      <option value="12">Muara Kemumu</option>
+      <option value="13">Bermani Ilir</option>
+      <option value="14">Seberang Musi</option>
+      <option value="15">Ujan Mas</option>
     `;
   }
 }
