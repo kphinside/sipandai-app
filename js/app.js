@@ -50,14 +50,42 @@ async function guardProtectedPage() {
 // ==========================================
 // 2. UI UPDATER & ROLE HANDLER
 // ==========================================
-function updateUserUI(session) {
+// GANTI fungsi updateUserUI di js/app.js dengan ini:
+async function updateUserUI(session) {
   const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
   
-  // Update nama di topbar
+  // 1. Update nama di topbar
   const nameEl = document.getElementById('userName');
   if (nameEl) nameEl.textContent = user.nama || session.user?.email || 'Pengguna';
   
-  // Role-based UI adjustment (PROPER: hak akses berbeda)
+  // 2. ✅ UPDATE AVATAR OTOMATIS
+  const avatarEl = document.getElementById('globalAvatar');
+  if (avatarEl && window.sbClient) {
+    // Coba ambil dari cache localStorage dulu (lebih cepat)
+    const cachedFoto = localStorage.getItem('sipandai_foto_url');
+    
+    if (cachedFoto) {
+      avatarEl.src = cachedFoto;
+    } else {
+      // Fetch dari Supabase jika belum ada cache
+      try {
+        const { data: profile } = await window.sbClient
+          .from('profiles')
+          .select('foto_url')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.foto_url) {
+          avatarEl.src = profile.foto_url;
+          localStorage.setItem('sipandai_foto_url', profile.foto_url); // Simpan cache
+        }
+      } catch (err) {
+        console.warn('⚠️ Gagal load foto profil:', err);
+      }
+    }
+  }
+  
+  // 3. Role-based UI adjustment (tetap sama)
   const role = user.role || 'viewer';
   document.querySelectorAll('[data-role]').forEach(el => {
     const allowed = el.getAttribute('data-role').split(',').map(r => r.trim());
