@@ -6,8 +6,8 @@
 
 // 🔑 GANTI DENGAN DATA DARI DASHBOARD SUPABASE ANDA
 // Settings → API → Project URL & Project API keys (anon/public)
-const SUPABASE_URL = 'https://[PROJECT_ID_ANDA].supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOi...'; // 🔒 Hanya gunakan ANON KEY, JANGAN SERVICE ROLE KEY!
+const SUPABASE_URL = 'https://fnyfxaiurjdpinatclcg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZueWZ4YWl1cmpkcGluYXRjbGNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTM2NzAsImV4cCI6MjA5NTI2OTY3MH0.hULKoNqqaTm39rs5Qoa-8WTmMPpzl81JvePRcEpl3TQ'; // 🔒 Hanya gunakan ANON KEY, JANGAN SERVICE ROLE KEY!
 
 // Inisialisasi Supabase Client
 // Pastikan script CDN Supabase sudah dimuat di HTML sebelum file ini
