@@ -269,17 +269,37 @@ function renderStakeholders() {
 window.markAsDone = async (id) => {
   if (!confirm('Tandai koordinasi ini sebagai selesai?')) return;
   
+  console.log('🔄 Marking coordination as done, ID:', id);
+  
   try {
-    const { error } = await window.sbClient
+    const { data, error } = await window.sbClient
       .from('koordinasi')
       .update({ status: 'selesai', updated_at: new Date().toISOString() })
-      .eq('id', id);
+      .eq('id', id)
+      .select(); // ✅ Tambah .select() agar kita lihat hasil update
     
-    if (error) throw error;
+    console.log('📡 Update response:', { data, error });
+    
+    if (error) {
+      console.error('❌ Supabase error:', error);
+      
+      // Deteksi error RLS
+      if (error.code === '42501' || error.message?.includes('permission')) {
+        window.app.showToast('⚠️ Akses ditolak. Periksa hak akses Anda.', 'warning');
+        return;
+      }
+      throw error;
+    }
+    
+    if (!data || data.length === 0) {
+      console.warn('⚠️ No rows updated - possibly RLS blocking');
+      window.app.showToast('⚠️ Update diblokir (cek hak akses)', 'warning');
+      return;
+    }
     
     window.app.showToast('✅ Status berubah menjadi Selesai', 'success');
     
-    // ✅ Re-fetch & re-render semua komponen agar UI sinkron
+    // Re-fetch & re-render
     await fetchKoordinasiData(currentFilters);
     renderTable(koordinasiData);
     renderStats(koordinasiData);
@@ -287,7 +307,7 @@ window.markAsDone = async (id) => {
     
   } catch (err) {
     console.error('Gagal update status:', err);
-    window.app.showToast('Gagal update status', 'error');
+    window.app.showToast('Gagal: ' + err.message, 'error');
   }
 };
 
