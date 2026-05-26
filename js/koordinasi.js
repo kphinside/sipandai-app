@@ -171,7 +171,7 @@ function renderTable(data) {
 }
 
 // ==========================================
-// 📋 RENDER TRACKING TABLE
+// 📋 RENDER TRACKING TABLE (FIXED)
 // ==========================================
 function renderTrackingTable(data) {
   const tbody = document.getElementById('trackingTable');
@@ -179,18 +179,23 @@ function renderTrackingTable(data) {
   
   tbody.innerHTML = '';
   
-  // Filter hanya yang punya tindak lanjut
-  const withTindakLanjut = data?.filter(d => d.tindak_lanjut && d.tindak_lanjut.trim() !== '') || [];
+  // ✅ Filter: Tampilkan yang status-nya aktif (bukan selesai/ditunda)
+  // Atau yang punya tindak_lanjut (meskipun status selesai)
+  const trackingItems = data?.filter(d => {
+    const hasTindakLanjut = d.tindak_lanjut && d.tindak_lanjut.trim() !== '';
+    const isActiveStatus = ['berjalan', 'diproses', 'rencana'].includes(d.status);
+    return hasTindakLanjut || isActiveStatus;
+  }) || [];
   
-  if (withTindakLanjut.length === 0) {
+  if (trackingItems.length === 0) {
     tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Belum ada tindak lanjut.</td></tr>';
     return;
   }
   
-  withTindakLanjut.forEach(item => {
+  trackingItems.forEach(item => {
     const tr = document.createElement('tr');
     
-    // Tentukan status class
+    // Tentukan status class & text
     let statusClass = 'status-pending';
     let statusText = '⏳ Pending';
     
@@ -200,17 +205,31 @@ function renderTrackingTable(data) {
     } else if (item.status === 'berjalan' || item.status === 'diproses') {
       statusClass = 'status-progress';
       statusText = '🔄 Berjalan';
+    } else if (item.status === 'rencana') {
+      statusClass = 'status-baru';
+      statusText = '📅 Rencana';
     }
     
     // Estimate deadline (7 hari dari tanggal kegiatan)
-    const deadline = new Date(item.tanggal);
-    deadline.setDate(deadline.getDate() + 7);
+    let deadlineText = '-';
+    if (item.tanggal) {
+      try {
+        const deadline = new Date(item.tanggal);
+        deadline.setDate(deadline.getDate() + 7);
+        deadlineText = window.app.formatDate(deadline.toISOString());
+      } catch (e) {
+        deadlineText = window.app.formatDate(item.tanggal);
+      }
+    }
     
     tr.innerHTML = `
       <td><strong>#${item.id}</strong></td>
-      <td>${item.judul}</td>
-      <td>${item.peserta || '-'}</td>
-      <td>${window.app.formatDate(deadline.toISOString())}</td>
+      <td>
+        <strong>${item.judul}</strong><br>
+        <small class="text-muted">${item.jenis_kegiatan || '-'}</small>
+      </td>
+      <td>${item.peserta || item.kecamatan?.nama || '-'}</td>
+      <td>${deadlineText}</td>
       <td><span class="status-badge ${statusClass}">${statusText}</span></td>
       <td>
         <button class="btn-action" onclick="viewDetail(${item.id})">👁️ Detail</button>
