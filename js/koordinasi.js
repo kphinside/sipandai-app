@@ -1,13 +1,13 @@
 /**
  * js/koordinasi.js
  * Logic Halaman Koordinasi: Forum Koordinasi, Rapat, Tindak Lanjut
- * ✅ Supabase Real-time ✅ No Mock Data ✅ Role-based Access
+ * ✅ Supabase Real-time ✅ No Mock Data ✅ Role-based Access ✅ No Duplicates
  */
 
 // State global
 let koordinasiData = [];
 let currentFilters = {};
-const DEBUG = false; // Set true untuk debug
+const DEBUG = false;
 
 // ==========================================
 // 1. INIT & FETCH DATA
@@ -15,7 +15,6 @@ const DEBUG = false; // Set true untuk debug
 document.addEventListener('DOMContentLoaded', async () => {
   if (DEBUG) console.log('🚀 Initializing koordinasi page...');
   
-  // Pastikan Supabase client ready
   if (!window.sbClient) {
     console.error('❌ Supabase client not initialized');
     window.app.showToast('Koneksi database gagal', 'error');
@@ -25,7 +24,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initKoordinasiPage();
   setupForm();
   setupFilters();
-  setupRealtimeSubscription(); // ✅ Real-time updates
+  setupNewDiscussionButton(); // ✅ Setup tombol "+ Buat Diskusi Baru"
+  setupRealtimeSubscription();
 });
 
 async function initKoordinasiPage() {
@@ -42,7 +42,6 @@ async function initKoordinasiPage() {
   } catch (err) {
     console.error('❌ Init error:', err);
     
-    // Tampilkan pesan error yang jelas (bukan mock data)
     const tbody = document.getElementById('tableKoordinasi');
     if (tbody) {
       tbody.innerHTML = `
@@ -64,7 +63,6 @@ async function fetchKoordinasiData(filters = {}) {
     currentFilters = { ...filters };
     const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
     
-    // ✅ FIX: Hapus join 'profiles' karena relasi belum ada
     let query = window.sbClient
       .from('koordinasi')
       .select(`
@@ -73,22 +71,13 @@ async function fetchKoordinasiData(filters = {}) {
         created_at, updated_at,
         kecamatan_id, created_by,
         kecamatan (id, nama)
-        -- profiles (nama_lengkap) ← HAPUS INI
       `, { count: 'exact' })
       .order('tanggal', { ascending: false });
     
-    // Apply filters
-    if (filters.kecamatan_id) {
-      query = query.eq('kecamatan_id', parseInt(filters.kecamatan_id));
-    }
-    if (filters.status) {
-      query = query.eq('status', filters.status);
-    }
-    if (filters.jenis) {
-      query = query.eq('jenis_kegiatan', filters.jenis);
-    }
+    if (filters.kecamatan_id) query = query.eq('kecamatan_id', parseInt(filters.kecamatan_id));
+    if (filters.status) query = query.eq('status', filters.status);
+    if (filters.jenis) query = query.eq('jenis_kegiatan', filters.jenis);
     
-    // RLS: operator hanya lihat data kecamatannya
     if (user.role === 'operator_kec' && user.kecamatan_id) {
       query = query.eq('kecamatan_id', user.kecamatan_id);
     }
@@ -97,19 +86,12 @@ async function fetchKoordinasiData(filters = {}) {
     
     if (error) {
       console.error('❌ Supabase query error:', error);
-      
-      if (error.code === '42P01') {
-        throw new Error('Tabel koordinasi belum tersedia. Hubungi administrator.');
-      }
-      if (error.code === '42501') {
-        throw new Error('Akses ditolak. Periksa hak akses Anda.');
-      }
-      
+      if (error.code === '42P01') throw new Error('Tabel koordinasi belum tersedia. Hubungi administrator.');
+      if (error.code === '42501') throw new Error('Akses ditolak. Periksa hak akses Anda.');
       throw new Error(error.message);
     }
     
     koordinasiData = data || [];
-    
     if (DEBUG) console.log(`✅ Loaded ${koordinasiData.length} records`);
     return koordinasiData;
     
@@ -121,9 +103,7 @@ async function fetchKoordinasiData(filters = {}) {
 
 function showLoadingState() {
   const tbody = document.getElementById('tableKoordinasi');
-  if (tbody) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center">⏳ Memuat data...</td></tr>';
-  }
+  if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center">⏳ Memuat data...</td></tr>';
   
   ['statTotal', 'statBerjalan', 'statSelesai'].forEach(id => {
     const el = document.getElementById(id);
@@ -147,7 +127,6 @@ function renderStats(data) {
 function animateValue(id, start, end, duration) {
   const obj = document.getElementById(id);
   if (!obj) return;
-  
   let startTimestamp = null;
   const step = (timestamp) => {
     if (!startTimestamp) startTimestamp = timestamp;
@@ -172,11 +151,9 @@ function renderTable(data) {
     return;
   }
   
-  // Get current user name from localStorage
   const currentUser = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
   
   data.forEach(item => {
-    // Try to get pelapor name
     let pelaporName = 'Unknown';
     if (item.created_by === currentUser.id) {
       pelaporName = currentUser.nama || 'Saya';
@@ -206,24 +183,12 @@ function renderTable(data) {
 }
 
 function getStatusClass(status) {
-  const map = {
-    'rencana': 'status-baru',
-    'berjalan': 'status-diproses',
-    'diproses': 'status-diproses',
-    'selesai': 'status-selesai',
-    'ditunda': ''
-  };
+  const map = { 'rencana': 'status-baru', 'berjalan': 'status-diproses', 'diproses': 'status-diproses', 'selesai': 'status-selesai', 'ditunda': '' };
   return map[status] || '';
 }
 
 function formatStatus(status) {
-  const map = {
-    'rencana': '📅 Rencana',
-    'berjalan': '🔄 Berjalan',
-    'diproses': '🔄 Diproses',
-    'selesai': '✅ Selesai',
-    'ditunda': '⏸️ Ditunda'
-  };
+  const map = { 'rencana': '📅 Rencana', 'berjalan': '🔄 Berjalan', 'diproses': '🔄 Diproses', 'selesai': '✅ Selesai', 'ditunda': '⏸️ Ditunda' };
   return map[status] || status;
 }
 
@@ -234,17 +199,14 @@ function canEditKoordinasi(item) {
   return false;
 }
 
-// Global functions for HTML onclick
+// ==========================================
+// 👁️ MODAL DETAIL
+// ==========================================
 window.viewDetail = async (id) => {
   try {
-    // Fetch detail lengkap
     const { data, error } = await window.sbClient
       .from('koordinasi')
-      .select(`
-        *, 
-        kecamatan (nama), 
-        profiles (nama_lengkap)
-      `)
+      .select(`*, kecamatan (nama)`)
       .eq('id', id)
       .single();
     
@@ -263,25 +225,19 @@ window.viewDetail = async (id) => {
           <div><span class="meta-label">Lokasi</span><br><strong>${data.lokasi || '-'}</strong></div>
           <div><span class="meta-label">Kecamatan</span><br><strong>${data.kecamatan?.nama || '-'}</strong></div>
           <div><span class="meta-label">Peserta</span><br><strong>${data.peserta || '-'}</strong></div>
-          <div><span class="meta-label">Pelapor</span><br><strong>${data.profiles?.nama_lengkap || '-'}</strong></div>
           <div><span class="meta-label">Status</span><br><strong>${formatStatus(data.status)}</strong></div>
           <div><span class="meta-label">Dibuat</span><br><strong>${window.app.formatDate(data.created_at)}</strong></div>
         </div>
         <div style="margin-bottom:1rem">
           <strong>📝 Notulensi:</strong>
-          <p style="margin:0.5rem 0;padding:0.75rem;background:#f8fafc;border-radius:6px;line-height:1.5">
-            ${data.notulensi || '-'}
-          </p>
+          <p style="margin:0.5rem 0;padding:0.75rem;background:#f8fafc;border-radius:6px;line-height:1.5">${data.notulensi || '-'}</p>
         </div>
         <div>
           <strong>✅ Tindak Lanjut:</strong>
-          <p style="margin:0.5rem 0;padding:0.75rem;background:#eff6ff;border-radius:6px;line-height:1.5">
-            ${data.tindak_lanjut || '-'}
-          </p>
+          <p style="margin:0.5rem 0;padding:0.75rem;background:#eff6ff;border-radius:6px;line-height:1.5">${data.tindak_lanjut || '-'}</p>
         </div>
       `;
       
-      // Show/hide edit button based on role
       const editSection = document.getElementById('modalEditSection');
       if (editSection) {
         if (canEditKoordinasi(data)) {
@@ -302,12 +258,11 @@ window.viewDetail = async (id) => {
 };
 
 window.editKoordinasi = (id) => {
-  // Redirect ke form edit atau buka modal edit
   window.app.showToast('Fitur edit akan segera tersedia', 'info');
 };
 
 // ==========================================
-// 📝 FORM SETUP (Tambah Data)
+// 📝 FORM SETUP
 // ==========================================
 function setupForm() {
   const form = document.getElementById('formKoordinasi');
@@ -335,22 +290,14 @@ function setupForm() {
         updated_at: new Date().toISOString()
       };
       
-      // Validate required fields
       if (!payload.judul) throw new Error('Judul wajib diisi');
       if (!payload.tanggal) throw new Error('Tanggal wajib diisi');
       
-      const { data, error } = await window.sbClient
-        .from('koordinasi')
-        .insert([payload])
-        .select()
-        .single();
-      
+      const { error } = await window.sbClient.from('koordinasi').insert([payload]);
       if (error) throw error;
       
       window.app.showToast('✅ Data koordinasi berhasil ditambahkan', 'success');
       form.reset();
-      
-      // Refresh data
       await fetchKoordinasiData(currentFilters);
       renderTable(koordinasiData);
       renderStats(koordinasiData);
@@ -363,7 +310,6 @@ function setupForm() {
     }
   });
   
-  // Reset form
   document.getElementById('btnReset')?.addEventListener('click', () => {
     document.getElementById('formKoordinasi').reset();
   });
@@ -377,11 +323,7 @@ async function loadKecamatanDropdown() {
   if (!select) return;
   
   try {
-    const { data, error } = await window.sbClient
-      .from('kecamatan')
-      .select('id, nama')
-      .order('nama');
-    
+    const { data, error } = await window.sbClient.from('kecamatan').select('id, nama').order('nama');
     if (error) throw error;
     
     select.innerHTML = '<option value="">Semua Kecamatan</option>';
@@ -394,7 +336,6 @@ async function loadKecamatanDropdown() {
     
   } catch (err) {
     console.error('❌ Gagal load kecamatan:', err);
-    // Fallback hardcoded
     select.innerHTML = `
       <option value="">Semua Kecamatan</option>
       <option value="8">Kepahiang</option><option value="9">Tebat Karai</option>
@@ -411,7 +352,6 @@ function setupFilters() {
   
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
     const filters = {
       kecamatan_id: document.getElementById('filterKecamatan')?.value || null,
       status: document.getElementById('filterStatus')?.value || null,
@@ -422,57 +362,43 @@ function setupFilters() {
     await fetchKoordinasiData(filters);
     renderTable(koordinasiData);
     renderStats(koordinasiData);
-    
     window.app.showToast('🔍 Filter diterapkan', 'info');
   });
 }
 
 // ==========================================
-// 🎯 SETUP TOMBOL "BUAT DISKUSI BARU"
+// 🎯 SETUP TOMBOL "BUAT DISKUSI BARU" + CLOSE FORM
 // ==========================================
 function setupNewDiscussionButton() {
   const btnNew = document.getElementById('btnNewDiscussion');
-  const formSection = document.getElementById('formSection'); // Section form yang akan ditampilkan
+  const formSection = document.getElementById('formSection');
+  const btnClose = document.getElementById('btnCloseForm');
   
+  // Toggle form saat tombol "+ Buat Diskusi Baru" diklik
   if (btnNew && formSection) {
     btnNew.addEventListener('click', (e) => {
       e.preventDefault();
+      const isHidden = formSection.style.display === 'none' || !formSection.style.display;
+      formSection.style.display = isHidden ? 'block' : 'none';
       
-      // Scroll ke form dan tampilkan
-      formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (isHidden) {
+        formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        formSection.classList.add('highlight');
+        setTimeout(() => formSection.classList.remove('highlight'), 2000);
+        document.getElementById('koordinasiJudul')?.focus();
+      }
       
-      // Highlight form (opsional, untuk UX)
-      formSection.classList.add('highlight');
-      setTimeout(() => formSection.classList.remove('highlight'), 2000);
-      
-      // Fokus ke field pertama
-      document.getElementById('koordinasiJudul')?.focus();
-      
-      if (DEBUG) console.log('🎯 New discussion form opened');
+      if (DEBUG) console.log('🎯 Form toggled:', isHidden ? 'opened' : 'closed');
     });
-  } else {
-    if (DEBUG) console.warn('⚠️ btnNewDiscussion or formSection not found');
   }
-}
-
-// Panggil fungsi ini di initKoordinasiPage()
-async function initKoordinasiPage() {
-  showLoadingState();
   
-  try {
-    await fetchKoordinasiData();
-    renderTable(koordinasiData);
-    renderStats(koordinasiData);
-    await loadKecamatanDropdown();
-    
-    // ✅ Tambahkan ini:
-    setupNewDiscussionButton();
-    
-    if (DEBUG) console.log('✅ Koordinasi page initialized');
-    
-  } catch (err) {
-    console.error('❌ Init error:', err);
-    // ... error handling ...
+  // Close form saat tombol ✕ diklik
+  if (btnClose && formSection) {
+    btnClose.addEventListener('click', () => {
+      formSection.style.display = 'none';
+      document.getElementById('formKoordinasi')?.reset();
+      if (DEBUG) console.log('🎯 Form closed via close button');
+    });
   }
 }
 
@@ -494,13 +420,11 @@ function setupRealtimeSubscription() {
     }, async (payload) => {
       if (DEBUG) console.log('🔄 Realtime update:', payload.eventType, payload.new?.id);
       
-      // Re-fetch data & re-render
       showLoadingState();
       await fetchKoordinasiData(currentFilters);
       renderTable(koordinasiData);
       renderStats(koordinasiData);
       
-      // Notify user
       const messages = {
         'INSERT': '🆕 Data koordinasi baru ditambahkan',
         'UPDATE': '🔄 Data koordinasi diperbarui',
@@ -521,29 +445,21 @@ document.getElementById('btnExport')?.addEventListener('click', async () => {
   window.app.setLoading(btn, true);
   
   try {
-    // Fetch all data for export (no pagination)
     let query = window.sbClient
       .from('koordinasi')
-      .select(`
-        id, judul, jenis_kegiatan, tanggal, lokasi,
-        peserta, notulensi, tindak_lanjut, status,
-        kecamatan (nama), profiles (nama_lengkap)
-      `)
+      .select(`id, judul, jenis_kegiatan, tanggal, lokasi, peserta, notulensi, tindak_lanjut, status, kecamatan (nama)`)
       .order('tanggal', { ascending: false });
     
-    // Apply active filters
     if (currentFilters.kecamatan_id) query = query.eq('kecamatan_id', currentFilters.kecamatan_id);
     if (currentFilters.status) query = query.eq('status', currentFilters.status);
     
     const { data, error } = await query;
     if (error) throw error;
     
-    // Convert to CSV
     const csv = [
       ['ID', 'Tanggal', 'Judul', 'Jenis', 'Lokasi', 'Kecamatan', 'Peserta', 'Status', 'Notulensi', 'Tindak Lanjut'].join(','),
       ...data.map(d => [
-        d.id,
-        d.tanggal,
+        d.id, d.tanggal,
         `"${(d.judul || '').replace(/"/g, '""')}"`,
         d.jenis_kegiatan || '-',
         `"${(d.lokasi || '').replace(/"/g, '""')}"`,
@@ -555,7 +471,6 @@ document.getElementById('btnExport')?.addEventListener('click', async () => {
       ].join(','))
     ].join('\n');
     
-    // Download
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
