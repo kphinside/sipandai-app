@@ -171,6 +171,21 @@
   <script src="js/config.js"></script>
   <script src="js/app.js"></script>
   <script src="js/dashboard.js"></script>
-
+<!-- Modal Detail Laporan (untuk dashboard) -->
+<div id="modalLaporanDetail" class="modal-overlay d-none">
+  <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-header">
+      <h3 id="modalLaporanTitle">📄 Detail Laporan</h3>
+      <button class="modal-close" id="closeLaporanModal">&times;</button>
+    </div>
+    <div class="modal-body" id="modalLaporanBody">
+      <!-- Diisi via JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="closeLaporanModalBtn">Tutup</button>
+      <button class="btn-primary" id="btnLihatLengkap">Lihat Lengkap →</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
