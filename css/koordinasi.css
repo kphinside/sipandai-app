@@ -209,3 +209,70 @@
     max-height: 300px;
   }
 }
+/* ===== TRACKING TABLE STYLES ===== */
+
+/* Status badges untuk tracking */
+.status-pending {
+  background: #fef3c7;
+  color: #92400e; /* Darker amber untuk kontras lebih baik */
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-progress {
+  background: #dbeafe;
+  color: #1e40af; /* Darker blue untuk kontras lebih baik */
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-done {
+  background: #dcfce7;
+  color: #166534; /* Darker green untuk kontras lebih baik */
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Tracking table specific */
+.tracking-card .data-table td {
+  vertical-align: middle;
+}
+
+.tracking-card .btn-action {
+  margin-right: 0.25rem;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+}
+
+/* Refresh button */
+.tracking-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-refresh {
+  background: #f1f5f9;
+  color: var(--dark);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.btn-refresh:hover {
+  background: #e2e8f0;
+  border-color: var(--primary);
+  color: var(--primary);
+}
