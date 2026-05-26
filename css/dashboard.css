@@ -395,3 +395,13 @@
   .form-select, .form-input, .btn-primary { width: 100%; }
   .stats-grid { grid-template-columns: 1fr; }
 }
+
+/* Animasi pulse untuk early warning */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.alert-banner[style*="pulse"] {
+  animation: pulse 2s infinite;
+}
