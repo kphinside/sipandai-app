@@ -269,28 +269,42 @@
 /* Charts Section */
 .charts-section {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(3, 1fr); /* ✅ 3 kolom fixed */
+  gap: 1.25rem;
+  align-items: start; /* ✅ Prevent stretching */
 }
 
 .chart-box {
   background: #fff;
-  padding: 1.25rem;
+  padding: 1rem;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  max-height: 350px; /* ✅ Batasi tinggi maksimal */
+  overflow: hidden;
 }
 
 .chart-box h3 {
-  font-size: 1rem;
+  font-size: 0.95rem; /* ✅ Perkecil judul */
   font-weight: 600;
-  margin-bottom: 1rem;
+  margin: 0 0 0.75rem 0;
   color: var(--dark);
+  line-height: 1.3;
 }
 
+/* Chart canvas container */
+.chart-box canvas {
+  max-height: 250px; /* ✅ Batasi tinggi canvas */
+  flex: 1;
+}
+
+/* Map box specific */
 .map-box #miniMap {
-  height: 280px;
+  height: 220px; /* ✅ Tinggi map lebih kecil */
   border-radius: var(--radius);
   border: 1px solid var(--border);
+  background: #f8fafc;
 }
 
 /* Table Section */
@@ -394,6 +408,21 @@
   .filter-form { flex-direction: column; }
   .form-select, .form-input, .btn-primary { width: 100%; }
   .stats-grid { grid-template-columns: 1fr; }
+  .charts-section {
+    grid-template-columns: 1fr;
+  }
+  
+  .chart-box {
+    max-height: 300px;
+  }
+  
+  .chart-box canvas {
+    max-height: 200px;
+  }
+  
+  .map-box #miniMap {
+    height: 200px;
+  }
 }
 
 /* Animasi pulse untuk early warning */
@@ -404,4 +433,11 @@
 
 .alert-banner[style*="pulse"] {
   animation: pulse 2s infinite;
+}
+
+/* Responsive: 2 kolom di tablet */
+@media (max-width: 1200px) {
+  .charts-section {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
