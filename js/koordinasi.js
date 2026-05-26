@@ -30,20 +30,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function initKoordinasiPage() {
   showLoadingState();
-  
   try {
     await fetchKoordinasiData();
     renderTable(koordinasiData);
     renderStats(koordinasiData);
-    renderTrackingTable(koordinasiData); // ✅ Render tracking table
+    renderTrackingTable(koordinasiData);
+    renderStakeholders(); // ✅ Tambahkan ini
     await loadKecamatanDropdown();
-    
-    if (DEBUG) console.log('✅ Koordinasi page initialized');
-    
-  } catch (err) {
-    console.error('❌ Init error:', err);
-    // ... error handling ...
-  }
+  } catch (err) { /* ... */ }
 }
 
 async function fetchKoordinasiData(filters = {}) {
@@ -240,6 +234,37 @@ function renderTrackingTable(data) {
   });
 }
 
+function renderStakeholders() {
+  const grid = document.getElementById('stakeholderGrid');
+  if (!grid) return;
+  
+  grid.innerHTML = '';
+  
+  // Data dummy realistis untuk Forkopimda & Perangkat Daerah
+  const stakeholders = [
+    { icon: '👤', name: 'Bupati Kepahiang', role: 'Ketua Forkopimda', contact: '0732-xxxxxx' },
+    { icon: '👮', name: 'Kapolres Kepahiang', role: 'Unsur Kepolisian', contact: '0732-xxxxxx' },
+    { icon: '🎖️', name: 'Dandim 0416/Bute', role: 'Unsur TNI', contact: '0732-xxxxxx' },
+    { icon: '⚖️', name: 'Kajari Kepahiang', role: 'Unsur Kejaksaan', contact: '0732-xxxxxx' },
+    { icon: '🏛️', name: 'Sekda Kabupaten', role: 'Koordinator Harian', contact: '0732-xxxxxx' },
+    { icon: '', name: 'Kasbangpol', role: 'Penanggung Jawab SIPANDAI', contact: '08xx-xxxx-xxxx' }
+  ];
+
+  stakeholders.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'stakeholder-card';
+    card.innerHTML = `
+      <div class="stakeholder-avatar">${s.icon}</div>
+      <div class="stakeholder-info">
+        <div class="stakeholder-name">${s.name}</div>
+        <div class="stakeholder-role">${s.role}</div>
+        <div class="stakeholder-contact">📞 ${s.contact}</div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
 // Global function untuk mark as done
 window.markAsDone = async (id) => {
   if (!confirm('Tandai koordinasi ini sebagai selesai?')) return;
@@ -252,14 +277,16 @@ window.markAsDone = async (id) => {
     
     if (error) throw error;
     
-    window.app.showToast('✅ Ditandai sebagai selesai', 'success');
+    window.app.showToast('✅ Status berubah menjadi Selesai', 'success');
+    
+    // ✅ Re-fetch & re-render semua komponen agar UI sinkron
     await fetchKoordinasiData(currentFilters);
     renderTable(koordinasiData);
     renderStats(koordinasiData);
     renderTrackingTable(koordinasiData);
     
   } catch (err) {
-    console.error('Error marking as done:', err);
+    console.error('Gagal update status:', err);
     window.app.showToast('Gagal update status', 'error');
   }
 };
@@ -339,8 +366,44 @@ window.viewDetail = async (id) => {
   }
 };
 
-window.editKoordinasi = (id) => {
-  window.app.showToast('Fitur edit akan segera tersedia', 'info');
+window.editKoordinasi = async (id) => {
+  try {
+    // Ambil data dari DB
+    const { data, error } = await window.sbClient
+      .from('koordinasi')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+
+    // Isi form dengan data existing
+    document.getElementById('koordinasiJudul').value = data.judul || '';
+    document.getElementById('koordinasiJenis').value = data.jenis_kegiatan || '';
+    document.getElementById('koordinasiTanggal').value = data.tanggal ? data.tanggal.slice(0, 16) : '';
+    document.getElementById('koordinasiLokasi').value = data.lokasi || '';
+    document.getElementById('koordinasiPeserta').value = data.peserta || '';
+    document.getElementById('koordinasiNotulensi').value = data.notulensi || '';
+    document.getElementById('koordinasiTindakLanjut').value = data.tindak_lanjut || '';
+    document.getElementById('koordinasiStatus').value = data.status || 'rencana';
+    if (data.kecamatan_id) document.getElementById('koordinasiKecamatan').value = data.kecamatan_id;
+
+    // Tampilkan form & scroll ke atas
+    const formSection = document.getElementById('formSection');
+    formSection.style.display = 'block';
+    formSection.scrollIntoView({ behavior: 'smooth' });
+
+    // Ubah tombol submit jadi mode "Update"
+    const btnSubmit = document.getElementById('btnSubmitKoordinasi');
+    btnSubmit.textContent = '💾 Simpan Perubahan';
+    btnSubmit.dataset.editId = id; // Simpan ID untuk logika update
+
+    window.app.showToast('📝 Form siap diedit. Klik "Simpan Perubahan" untuk update.', 'info');
+    
+  } catch (err) {
+    console.error('Gagal load data edit:', err);
+    window.app.showToast('Gagal memuat data untuk edit', 'error');
+  }
 };
 
 // ==========================================
@@ -530,6 +593,28 @@ function setupRealtimeSubscription() {
       if (DEBUG) console.log('📡 Realtime subscription status:', status);
     });
 }
+
+function setupModal() {
+  const modal = document.getElementById('modalDetail');
+  const btnCloseX = document.getElementById('closeModal');
+  const btnCloseFooter = document.getElementById('closeModalBtn');
+
+  const closeModal = () => modal?.classList.add('d-none');
+
+  btnCloseX?.addEventListener('click', closeModal);
+  btnCloseFooter?.addEventListener('click', closeModal);
+  
+  // Klik di area gelap (overlay) juga menutup modal
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+}
+
+// Panggil di bagian paling bawah file:
+document.addEventListener('DOMContentLoaded', () => {
+  // ... kode existing ...
+  setupModal(); // ✅ Tambahkan ini
+});
 
 // ==========================================
 // 📥 EXPORT CSV
