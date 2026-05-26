@@ -53,7 +53,16 @@
       <section class="card forum-card">
         <div class="card-header">
           <h2>💬 Forum Koordinasi Internal</h2>
-          <button class="btn-primary btn-sm" id="btnNewThread">+ Buat Diskusi Baru</button>
+          <!-- Section Form Input (bisa di-toggle) -->
+<section id="formSection" class="card form-section" style="display:none;">
+  <div class="card-header">
+    <h2>📝 Input Koordinasi Baru</h2>
+    <button type="button" class="btn-icon" id="btnCloseForm">&times;</button>
+  </div>
+  <form id="formKoordinasi" class="report-form">
+    <!-- ... form fields ... -->
+  </form>
+</section>
         </div>
         <div class="forum-list" id="forumList">
           <!-- Thread items will be injected via JS -->
