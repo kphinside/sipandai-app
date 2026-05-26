@@ -15,7 +15,8 @@ let currentFilters = {};
 // ==========================================
 // Auto-load detail jika ada parameter report_id di URL
 document.addEventListener('DOMContentLoaded', async () => {
-  // ... kode existing ...
+   // ✅ PANGGIL initReportPage() DULU
+  await initReportPage();
   
   // Cek URL parameter
   const urlParams = new URLSearchParams(window.location.search);
