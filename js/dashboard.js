@@ -580,3 +580,35 @@ function initMiniMap() {
     console.warn('⚠️ Mini map init failed:', err);
   }
 }
+
+// ==========================================
+// 🎯 SETUP MODAL CLOSE BUTTONS
+// ==========================================
+function setupDashboardModal() {
+  const modal = document.getElementById('modalLaporanDetail');
+  const btnCloseX = document.getElementById('closeLaporanModal');
+  const btnCloseFooter = document.getElementById('closeLaporanModalBtn');
+  
+  const closeModal = () => modal?.classList.add('d-none');
+  
+  btnCloseX?.addEventListener('click', closeModal);
+  btnCloseFooter?.addEventListener('click', closeModal);
+  
+  // Klik di overlay juga menutup modal
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+  
+  // Escape key juga menutup modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal?.classList.contains('d-none') === false) {
+      closeModal();
+    }
+  });
+}
+
+// Panggil di DOMContentLoaded
+document.addEventListener('DOMContentLoaded', async () => {
+  // ... kode existing ...
+  setupDashboardModal(); // ✅ Tambahkan ini
+});
