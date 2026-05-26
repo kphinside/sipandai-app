@@ -354,8 +354,84 @@ function renderRecentTable(data) {
   });
 }
 
-window.viewReportDetail = (id) => {
-  window.location.href = `laporan.html?report_id=${id}`;
+// ==========================================
+// 👁️ MODAL DETAIL LAPORAN (Dashboard)
+// ==========================================
+window.viewReportDetail = async (id) => {
+  try {
+    // Fetch detail lengkap dari Supabase
+    const { data, error } = await window.sbClient
+      .from('conflict_reports')
+      .select(`
+        *, 
+        kecamatan (nama), 
+        desa (nama),
+        profiles (nama_lengkap)
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    
+    // Isi modal
+    const modal = document.getElementById('modalLaporanDetail');
+    const modalTitle = document.getElementById('modalLaporanTitle');
+    const modalBody = document.getElementById('modalLaporanBody');
+    
+    if (!modal || !modalTitle || !modalBody) {
+      console.warn('⚠️ Modal elements not found, falling back to redirect');
+      window.location.href = `laporan.html?report_id=${id}`;
+      return;
+    }
+    
+    modalTitle.textContent = `Laporan #${data.id}: ${data.judul}`;
+    
+    modalBody.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Tanggal</span><br><strong>${window.app.formatDate(data.created_at)}</strong></div>
+        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Status</span><br><strong>${window.app.formatStatus(data.status)}</strong></div>
+        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Kategori</span><br><strong>${data.kategori || 'Lainnya'}</strong></div>
+        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Risiko</span><br><strong style="color:${window.app.getRisikoColor?.(data.tingkat_risiko) || '#eab308'}">${window.app.formatRisiko?.(data.tingkat_risiko) || data.tingkat_risiko}</strong></div>
+        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Lokasi</span><br><strong>${data.kecamatan?.nama || '-'}, ${data.desa?.nama || data.alamat_lokasi || '-'}</strong></div>
+        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Pelapor</span><br><strong>${data.profiles?.nama_lengkap || 'Anonim'}</strong></div>
+        ${data.lokasi_lat ? `<div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Koordinat</span><br><strong>${data.lokasi_lat.toFixed(4)}, ${data.lokasi_lng.toFixed(4)}</strong></div>` : ''}
+      </div>
+      
+      <div style="margin-bottom:1rem">
+        <strong>📝 Deskripsi:</strong>
+        <p style="margin:0.5rem 0;padding:0.75rem;background:#f8fafc;border-radius:8px;line-height:1.5;color:#1e293b">
+          ${data.deskripsi || '-'}
+        </p>
+      </div>
+      
+      ${data.foto_url ? `
+        <div>
+          <strong>🖼️ Bukti:</strong>
+          <div style="margin-top:0.5rem">
+            <a href="${data.foto_url}" target="_blank" class="btn-outline btn-sm">🔗 Lihat Bukti</a>
+          </div>
+        </div>
+      ` : ''}
+    `;
+    
+    // Setup tombol "Lihat Lengkap"
+    const btnLihatLengkap = document.getElementById('btnLihatLengkap');
+    if (btnLihatLengkap) {
+      btnLihatLengkap.onclick = () => {
+        modal.classList.add('d-none');
+        window.location.href = `laporan.html?report_id=${id}`;
+      };
+    }
+    
+    // Tampilkan modal
+    modal.classList.remove('d-none');
+    
+  } catch (err) {
+    console.error('Gagal load detail:', err);
+    window.app.showToast('Gagal memuat detail laporan', 'error');
+    // Fallback: redirect
+    window.location.href = `laporan.html?report_id=${id}`;
+  }
 };
 
 // ==========================================
