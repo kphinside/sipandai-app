@@ -58,13 +58,13 @@ async function fetchDashboardData(filters = {}) {
     currentFilters = { ...filters };
     const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
     
+    // ✅ QUERY FIX: Jangan join 'desa' jika relasi belum ada
     let query = window.sbClient
       .from('conflict_reports')
       .select(`
         id, judul, kategori, tingkat_risiko, status, created_at,
-        kecamatan_id, lokasi_lat, lokasi_lng,
+        alamat_lokasi, kecamatan_id, lokasi_lat, lokasi_lng,
         kecamatan (id, nama),
-        desa (id, nama),
         profiles (nama_lengkap)
       `, { count: 'exact' })
       .order('created_at', { ascending: false });
@@ -91,12 +91,14 @@ async function fetchDashboardData(filters = {}) {
       throw new Error(`Database error: ${error.message}`);
     }
     
+    // ✅ Format data: ambil desa dari alamat_lokasi jika desa join tidak ada
     dashboardData = (data || []).map(d => ({
       id: d.id,
       tgl: d.created_at,
       judul: d.judul,
       kec: d.kecamatan?.nama || '-',
-      desa: d.desa?.nama || '-',
+      // Coba ambil dari desa join, fallback ke alamat_lokasi
+      desa: d.desa?.nama || (d.alamat_lokasi ? d.alamat_lokasi.split(',')[0].trim() : '-'),
       kat: d.kategori || 'Lainnya',
       risiko: d.tingkat_risiko || 'Sedang',
       status: d.status,
@@ -109,20 +111,26 @@ async function fetchDashboardData(filters = {}) {
   } catch (err) {
     console.error('❌ fetchDashboardData error:', err);
     
-    // Fallback: simple query without joins
+    // Fallback: simple query tanpa join apapun
     try {
       const { data: fallbackData } = await window.sbClient
         .from('conflict_reports')
-        .select('id, judul, kategori, tingkat_risiko, status, created_at')
+        .select('id, judul, kategori, tingkat_risiko, status, created_at, alamat_lokasi')
         .limit(5)
         .order('created_at', { ascending: false });
       
       if (fallbackData) {
         dashboardData = fallbackData.map(d => ({
-          id: d.id, tgl: d.created_at, judul: d.judul,
-          kec: '-', desa: '-', kat: d.kategori || 'Lainnya',
-          risiko: d.tingkat_risiko || 'Sedang', status: d.status,
-          pelapor: '-', _raw: d
+          id: d.id,
+          tgl: d.created_at,
+          judul: d.judul,
+          kec: '-',
+          desa: d.alamat_lokasi ? d.alamat_lokasi.split(',')[0].trim() : '-',
+          kat: d.kategori || 'Lainnya',
+          risiko: d.tingkat_risiko || 'Sedang',
+          status: d.status,
+          pelapor: '-',
+          _raw: d
         }));
         return dashboardData;
       }
