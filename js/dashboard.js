@@ -1,155 +1,136 @@
 /**
- * js/dashboard.js
- * Logic Dashboard: Stats, Charts, Recent Table, Filters & Early Warning
- * ✅ Chart.js v3 Compatible ✅ Safe Destroy ✅ Error Handling Robust
+ * js/koordinasi.js
+ * Logic Halaman Koordinasi: Forum Koordinasi, Rapat, Tindak Lanjut
+ * ✅ Supabase Real-time ✅ No Mock Data ✅ Role-based Access
  */
 
 // State global
-let dashboardData = [];
+let koordinasiData = [];
 let currentFilters = {};
-const DEBUG = true;
-
-// Store chart instances properly
-let chartInstances = {
-  tren: null,
-  kategori: null
-};
+const DEBUG = false; // Set true untuk debug
 
 // ==========================================
 // 1. INIT & FETCH DATA
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-  if (DEBUG) console.log('🚀 Initializing dashboard...');
+  if (DEBUG) console.log('🚀 Initializing koordinasi page...');
   
-  // Pastikan Chart.js loaded
-  if (typeof Chart === 'undefined') {
-    console.error('❌ Chart.js not loaded!');
-    window.app.showToast('Gagal memuat library grafik', 'error');
+  // Pastikan Supabase client ready
+  if (!window.sbClient) {
+    console.error('❌ Supabase client not initialized');
+    window.app.showToast('Koneksi database gagal', 'error');
     return;
   }
   
-  await initDashboard();
+  await initKoordinasiPage();
+  setupForm();
   setupFilters();
-  await loadKecamatanFilter();
+  setupRealtimeSubscription(); // ✅ Real-time updates
 });
 
-async function initDashboard() {
+async function initKoordinasiPage() {
+  showLoadingState();
+  
   try {
-    showLoadingState();
+    await fetchKoordinasiData();
+    renderTable(koordinasiData);
+    renderStats(koordinasiData);
+    await loadKecamatanDropdown();
     
-    if (DEBUG) console.log('📡 Fetching dashboard data from Supabase...');
-    await fetchDashboardData();
-    
-    if (DEBUG) console.log('✅ Data fetched, rendering components...');
-    renderStats(dashboardData);
-    await initCharts(dashboardData);
-    renderRecentTable(dashboardData);
-    updateEarlyWarning(dashboardData);
-    initMiniMap();
+    if (DEBUG) console.log('✅ Koordinasi page initialized');
     
   } catch (err) {
-    console.error('❌ Dashboard init error:', err);
-    window.app.showToast('Gagal memuat dashboard: ' + err.message, 'error');
+    console.error('❌ Init error:', err);
+    
+    // Tampilkan pesan error yang jelas (bukan mock data)
+    const tbody = document.getElementById('tableKoordinasi');
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="text-center text-danger">
+            ⚠️ Gagal memuat data: ${err.message}<br>
+            <small>Hubungi admin jika masalah berlanjut</small>
+          </td>
+        </tr>
+      `;
+    }
+    
+    window.app.showToast('Gagal memuat data koordinasi', 'error');
   }
 }
 
-async function fetchDashboardData(filters = {}) {
+async function fetchKoordinasiData(filters = {}) {
   try {
     currentFilters = { ...filters };
     const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
     
-    // ✅ QUERY FIX: Jangan join 'desa' jika relasi belum ada
+    // Query ke tabel 'koordinasi' dengan join tabel terkait
     let query = window.sbClient
-      .from('conflict_reports')
+      .from('koordinasi')
       .select(`
-        id, judul, kategori, tingkat_risiko, status, created_at,
-        alamat_lokasi, kecamatan_id, lokasi_lat, lokasi_lng,
+        id, judul, jenis_kegiatan, tanggal, lokasi,
+        peserta, notulensi, tindak_lanjut, status,
+        created_at, updated_at,
+        kecamatan_id,
         kecamatan (id, nama),
         profiles (nama_lengkap)
       `, { count: 'exact' })
-      .order('created_at', { ascending: false });
+      .order('tanggal', { ascending: false });
     
     // Apply filters
-    if (filters.kecamatan_id) query = query.eq('kecamatan_id', parseInt(filters.kecamatan_id));
-    if (filters.status) query = query.eq('status', filters.status);
-    if (filters.kategori) query = query.eq('kategori', filters.kategori);
-    if (filters.tingkat_risiko) query = query.eq('tingkat_risiko', filters.tingkat_risiko);
-    if (filters.date_from) query = query.gte('created_at', filters.date_from);
-    if (filters.date_to) query = query.lte('created_at', filters.date_to);
+    if (filters.kecamatan_id) {
+      query = query.eq('kecamatan_id', parseInt(filters.kecamatan_id));
+    }
+    if (filters.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters.jenis) {
+      query = query.eq('jenis_kegiatan', filters.jenis);
+    }
     
-    // RLS filter for operator
+    // RLS: operator hanya lihat data kecamatannya
     if (user.role === 'operator_kec' && user.kecamatan_id) {
       query = query.eq('kecamatan_id', user.kecamatan_id);
     }
-    
-    query = query.limit(5);
     
     const { data, error, count } = await query;
     
     if (error) {
       console.error('❌ Supabase query error:', error);
-      throw new Error(`Database error: ${error.message}`);
+      
+      // Error spesifik untuk tabel tidak ada
+      if (error.code === '42P01') {
+        throw new Error('Tabel koordinasi belum tersedia. Hubungi administrator.');
+      }
+      // Error permission
+      if (error.code === '42501') {
+        throw new Error('Akses ditolak. Periksa hak akses Anda.');
+      }
+      
+      throw new Error(error.message);
     }
     
-    // ✅ Format data: ambil desa dari alamat_lokasi jika desa join tidak ada
-    dashboardData = (data || []).map(d => ({
-      id: d.id,
-      tgl: d.created_at,
-      judul: d.judul,
-      kec: d.kecamatan?.nama || '-',
-      // Coba ambil dari desa join, fallback ke alamat_lokasi
-      desa: d.desa?.nama || (d.alamat_lokasi ? d.alamat_lokasi.split(',')[0].trim() : '-'),
-      kat: d.kategori || 'Lainnya',
-      risiko: d.tingkat_risiko || 'Sedang',
-      status: d.status,
-      pelapor: d.profiles?.nama_lengkap || 'Anonim',
-      _raw: d
-    }));
+    koordinasiData = data || [];
     
-    return dashboardData;
+    if (DEBUG) console.log(`✅ Loaded ${koordinasiData.length} records`);
+    return koordinasiData;
     
   } catch (err) {
-    console.error('❌ fetchDashboardData error:', err);
-    
-    // Fallback: simple query tanpa join apapun
-    try {
-      const { data: fallbackData } = await window.sbClient
-        .from('conflict_reports')
-        .select('id, judul, kategori, tingkat_risiko, status, created_at, alamat_lokasi')
-        .limit(5)
-        .order('created_at', { ascending: false });
-      
-      if (fallbackData) {
-        dashboardData = fallbackData.map(d => ({
-          id: d.id,
-          tgl: d.created_at,
-          judul: d.judul,
-          kec: '-',
-          desa: d.alamat_lokasi ? d.alamat_lokasi.split(',')[0].trim() : '-',
-          kat: d.kategori || 'Lainnya',
-          risiko: d.tingkat_risiko || 'Sedang',
-          status: d.status,
-          pelapor: '-',
-          _raw: d
-        }));
-        return dashboardData;
-      }
-    } catch (e) {
-      console.warn('⚠️ Fallback also failed');
-    }
-    
-    throw err;
+    console.error('❌ fetchKoordinasiData error:', err);
+    throw err; // Re-throw agar ditangani di initKoordinasiPage
   }
 }
 
 function showLoadingState() {
-  ['statTotal', 'statProses', 'statSelesai', 'statMerah'].forEach(id => {
+  const tbody = document.getElementById('tableKoordinasi');
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center">⏳ Memuat data...</td></tr>';
+  }
+  
+  ['statTotal', 'statBerjalan', 'statSelesai'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = '...';
   });
-  
-  const tbody = document.getElementById('tableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center">⏳ Memuat data...</td></tr>';
 }
 
 // ==========================================
@@ -157,14 +138,12 @@ function showLoadingState() {
 // ==========================================
 function renderStats(data) {
   const total = data?.length || 0;
-  const diproses = data?.filter(d => d.status === 'diproses')?.length || 0;
+  const berjalan = data?.filter(d => ['berjalan', 'diproses'].includes(d.status))?.length || 0;
   const selesai = data?.filter(d => d.status === 'selesai')?.length || 0;
-  const kritis = data?.filter(d => d.risiko === 'Kritis' || d.risiko === 'Tinggi')?.length || 0;
   
   animateValue('statTotal', 0, total, 500);
-  animateValue('statProses', 0, diproses, 500);
+  animateValue('statBerjalan', 0, berjalan, 500);
   animateValue('statSelesai', 0, selesai, 500);
-  animateValue('statMerah', 0, kritis, 500);
 }
 
 function animateValue(id, start, end, duration) {
@@ -182,157 +161,16 @@ function animateValue(id, start, end, duration) {
 }
 
 // ==========================================
-// 📈 CHARTS - Chart.js v3 Compatible
+// 📋 RENDER TABLE
 // ==========================================
-
-// ✅ Helper: Safe destroy chart instance (Chart.js v3+)
-function safeDestroyChart(chartKey) {
-  try {
-    const chart = chartInstances[chartKey];
-    if (chart && typeof chart.destroy === 'function') {
-      chart.destroy();
-      chartInstances[chartKey] = null;
-      if (DEBUG) console.log(`🗑️ Chart ${chartKey} destroyed`);
-    }
-  } catch (err) {
-    console.warn(`⚠️ Failed to destroy chart ${chartKey}:`, err);
-  }
-}
-
-async function initCharts(data) {
-  await initTrenChart();
-  await initKategoriChart(data);
-}
-
-async function initTrenChart() {
-  const ctx = document.getElementById('chartTren');
-  if (!ctx) return;
-  
-  try {
-    // Destroy existing chart safely
-    safeDestroyChart('tren');
-    
-    // Fetch trend data (30 days)
-    const { data: trenData, error } = await window.sbClient
-      .from('conflict_reports')
-      .select('created_at')
-      .gte('created_at', new Date(Date.now() - 30*24*60*60*1000).toISOString())
-      .order('created_at', { ascending: true });
-    
-    if (error) throw error;
-    
-    // Prepare labels & values (last 7 days)
-    const dateMap = {};
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(Date.now() - i*24*60*60*1000);
-      const key = date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
-      dateMap[key] = 0;
-    }
-    
-    trenData?.forEach(d => {
-      const date = new Date(d.created_at);
-      const key = date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
-      if (dateMap[key] !== undefined) dateMap[key]++;
-    });
-    
-    // Create new chart (Chart.js v3+ syntax)
-    chartInstances.tren = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: Object.keys(dateMap),
-        datasets: [{
-          label: 'Laporan Masuk',
-          data: Object.values(dateMap),
-          borderColor: '#1e40af',
-          backgroundColor: 'rgba(30, 64, 175, 0.1)',
-          tension: 0.3,
-          fill: true,
-          pointRadius: 3,
-          pointHoverRadius: 5
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { 
-          legend: { display: false },
-          tooltip: { enabled: true }
-        },
-        scales: {
-          y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.05)' } },
-          x: { grid: { display: false } }
-        }
-      }
-    });
-    
-    if (DEBUG) console.log('✅ Tren chart initialized');
-    
-  } catch (err) {
-    console.error('❌ Gagal load chart tren:', err);
-    safeDestroyChart('tren');
-  }
-}
-
-async function initKategoriChart(data) {
-  const ctx = document.getElementById('chartKategori');
-  if (!ctx) return;
-  
-  try {
-    safeDestroyChart('kategori');
-    
-    const kategoriCount = { 'SARA': 0, 'Ekonomi': 0, 'Politik': 0, 'Bencana': 0, 'Lainnya': 0 };
-    
-    data?.forEach(d => {
-      const kat = d.kat || 'Lainnya';
-      if (kategoriCount[kat] !== undefined) {
-        kategoriCount[kat]++;
-      } else {
-        kategoriCount['Lainnya']++;
-      }
-    });
-    
-    chartInstances.kategori = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: Object.keys(kategoriCount),
-        datasets: [{
-          data: Object.values(kategoriCount),
-          backgroundColor: ['#dc2626', '#059669', '#1e40af', '#f59e0b', '#64748b'],
-          borderWidth: 2,
-          borderColor: '#fff',
-          hoverOffset: 4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { 
-          legend: { position: 'bottom', labels: { usePointStyle: true, padding: 12 } },
-          tooltip: { enabled: true }
-        },
-        cutout: '65%'
-      }
-    });
-    
-    if (DEBUG) console.log('✅ Kategori chart initialized');
-    
-  } catch (err) {
-    console.error('❌ Gagal load chart kategori:', err);
-    safeDestroyChart('kategori');
-  }
-}
-
-// ==========================================
-// 📋 RECENT TABLE
-// ==========================================
-function renderRecentTable(data) {
-  const tbody = document.getElementById('tableBody');
+function renderTable(data) {
+  const tbody = document.getElementById('tableKoordinasi');
   if (!tbody) return;
   
   tbody.innerHTML = '';
   
   if (!data || data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Belum ada laporan.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Belum ada data koordinasi.</td></tr>';
     return;
   }
   
@@ -340,56 +178,194 @@ function renderRecentTable(data) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><strong>#${item.id}</strong></td>
-      <td>${window.app.formatDate(item.tgl)}</td>
+      <td>${window.app.formatDate(item.tanggal)}</td>
       <td>
-        <strong>${item.kec}</strong><br>
-        <small class="text-muted">${item.desa}</small>
+        <strong>${item.judul}</strong><br>
+        <small class="text-muted">${item.jenis_kegiatan || '-'}</small>
       </td>
-      <td>${item.kat}</td>
-      <td><span class="risiko-badge ${window.app.getRisikoClass(item.risiko)}">${window.app.formatRisiko(item.risiko)}</span></td>
-      <td><span class="status-badge ${window.app.getStatusClass(item.status)}">${window.app.formatStatus(item.status)}</span></td>
-      <td><button class="btn-action" onclick="viewReportDetail(${item.id})">👁️ Detail</button></td>
+      <td>${item.lokasi || '-'}</td>
+      <td>${item.kecamatan?.nama || '-'}</td>
+      <td>${item.peserta ? item.peserta.split(',').length + ' orang' : '-'}</td>
+      <td><span class="status-badge ${getStatusClass(item.status)}">${formatStatus(item.status)}</span></td>
+      <td>
+        <button class="btn-action" title="Detail" onclick="viewDetail(${item.id})">👁️</button>
+        ${canEditKoordinasi(item) ? `<button class="btn-action" title="Edit" onclick="editKoordinasi(${item.id})">✏️</button>` : ''}
+      </td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-window.viewReportDetail = (id) => {
-  window.location.href = `laporan.html?report_id=${id}`;
+function getStatusClass(status) {
+  const map = {
+    'rencana': 'status-baru',
+    'berjalan': 'status-diproses',
+    'diproses': 'status-diproses',
+    'selesai': 'status-selesai',
+    'ditunda': ''
+  };
+  return map[status] || '';
+}
+
+function formatStatus(status) {
+  const map = {
+    'rencana': '📅 Rencana',
+    'berjalan': '🔄 Berjalan',
+    'diproses': '🔄 Diproses',
+    'selesai': '✅ Selesai',
+    'ditunda': '⏸️ Ditunda'
+  };
+  return map[status] || status;
+}
+
+function canEditKoordinasi(item) {
+  const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
+  if (user.role === 'admin_kesbangpol') return true;
+  if (user.role === 'operator_kec' && item.kecamatan_id === user.kecamatan_id) return true;
+  return false;
+}
+
+// Global functions for HTML onclick
+window.viewDetail = async (id) => {
+  try {
+    // Fetch detail lengkap
+    const { data, error } = await window.sbClient
+      .from('koordinasi')
+      .select(`
+        *, 
+        kecamatan (nama), 
+        profiles (nama_lengkap)
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    
+    const modal = document.getElementById('modalDetail');
+    const modalBody = document.getElementById('modalBody');
+    
+    if (modal && modalBody) {
+      document.getElementById('modalTitle').textContent = `#${data.id}: ${data.judul}`;
+      
+      modalBody.innerHTML = `
+        <div class="detail-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+          <div><span class="meta-label">Jenis Kegiatan</span><br><strong>${data.jenis_kegiatan || '-'}</strong></div>
+          <div><span class="meta-label">Tanggal</span><br><strong>${window.app.formatDate(data.tanggal)}</strong></div>
+          <div><span class="meta-label">Lokasi</span><br><strong>${data.lokasi || '-'}</strong></div>
+          <div><span class="meta-label">Kecamatan</span><br><strong>${data.kecamatan?.nama || '-'}</strong></div>
+          <div><span class="meta-label">Peserta</span><br><strong>${data.peserta || '-'}</strong></div>
+          <div><span class="meta-label">Pelapor</span><br><strong>${data.profiles?.nama_lengkap || '-'}</strong></div>
+          <div><span class="meta-label">Status</span><br><strong>${formatStatus(data.status)}</strong></div>
+          <div><span class="meta-label">Dibuat</span><br><strong>${window.app.formatDate(data.created_at)}</strong></div>
+        </div>
+        <div style="margin-bottom:1rem">
+          <strong>📝 Notulensi:</strong>
+          <p style="margin:0.5rem 0;padding:0.75rem;background:#f8fafc;border-radius:6px;line-height:1.5">
+            ${data.notulensi || '-'}
+          </p>
+        </div>
+        <div>
+          <strong>✅ Tindak Lanjut:</strong>
+          <p style="margin:0.5rem 0;padding:0.75rem;background:#eff6ff;border-radius:6px;line-height:1.5">
+            ${data.tindak_lanjut || '-'}
+          </p>
+        </div>
+      `;
+      
+      // Show/hide edit button based on role
+      const editSection = document.getElementById('modalEditSection');
+      if (editSection) {
+        if (canEditKoordinasi(data)) {
+          editSection.classList.remove('d-none');
+          document.getElementById('editKoordinasiId').value = data.id;
+        } else {
+          editSection.classList.add('d-none');
+        }
+      }
+      
+      modal.classList.remove('d-none');
+    }
+    
+  } catch (err) {
+    console.error('Gagal load detail:', err);
+    window.app.showToast('Gagal memuat detail', 'error');
+  }
+};
+
+window.editKoordinasi = (id) => {
+  // Redirect ke form edit atau buka modal edit
+  window.app.showToast('Fitur edit akan segera tersedia', 'info');
 };
 
 // ==========================================
-// 🚨 EARLY WARNING
+// 📝 FORM SETUP (Tambah Data)
 // ==========================================
-function updateEarlyWarning(data) {
-  const banner = document.getElementById('earlyWarning');
-  const warnKec = document.getElementById('warnKec');
+function setupForm() {
+  const form = document.getElementById('formKoordinasi');
+  if (!form) return;
   
-  if (!banner || !warnKec) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitKoordinasi');
+    window.app.setLoading(btn, true);
+    
+    try {
+      const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
+      
+      const payload = {
+        judul: document.getElementById('koordinasiJudul').value.trim(),
+        jenis_kegiatan: document.getElementById('koordinasiJenis').value || null,
+        tanggal: document.getElementById('koordinasiTanggal').value || null,
+        lokasi: document.getElementById('koordinasiLokasi').value.trim() || null,
+        peserta: document.getElementById('koordinasiPeserta').value.trim() || null,
+        notulensi: document.getElementById('koordinasiNotulensi').value.trim() || null,
+        tindak_lanjut: document.getElementById('koordinasiTindakLanjut').value.trim() || null,
+        status: document.getElementById('koordinasiStatus').value || 'rencana',
+        kecamatan_id: document.getElementById('koordinasiKecamatan').value ? parseInt(document.getElementById('koordinasiKecamatan').value) : null,
+        created_by: user.id,
+        updated_at: new Date().toISOString()
+      };
+      
+      // Validate required fields
+      if (!payload.judul) throw new Error('Judul wajib diisi');
+      if (!payload.tanggal) throw new Error('Tanggal wajib diisi');
+      
+      const { data, error } = await window.sbClient
+        .from('koordinasi')
+        .insert([payload])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      window.app.showToast('✅ Data koordinasi berhasil ditambahkan', 'success');
+      form.reset();
+      
+      // Refresh data
+      await fetchKoordinasiData(currentFilters);
+      renderTable(koordinasiData);
+      renderStats(koordinasiData);
+      
+    } catch (err) {
+      console.error('❌ Submit error:', err);
+      window.app.showToast('Gagal: ' + err.message, 'error');
+    } finally {
+      window.app.setLoading(btn, false);
+    }
+  });
   
-  const urgent = data?.find(d => 
-    (d.risiko === 'Kritis' || d.risiko === 'Tinggi') && d.status === 'baru'
-  );
-  
-  if (urgent) {
-    banner.classList.remove('d-none');
-    warnKec.textContent = urgent.kec;
-  } else {
-    banner.classList.add('d-none');
-  }
+  // Reset form
+  document.getElementById('btnReset')?.addEventListener('click', () => {
+    document.getElementById('formKoordinasi').reset();
+  });
 }
 
 // ==========================================
-// 🔍 FILTER: LOAD KECAMATAN
+// 🔍 FILTERS
 // ==========================================
-async function loadKecamatanFilter() {
-  const select = document.getElementById('filterKecamatan');
-  if (!select) {
-    console.error('❌ Element #filterKecamatan not found!');
-    return;
-  }
-  
-  if (DEBUG) console.log('🔄 Loading kecamatan for filter dropdown...');
+async function loadKecamatanDropdown() {
+  const select = document.getElementById('koordinasiKecamatan');
+  if (!select) return;
   
   try {
     const { data, error } = await window.sbClient
@@ -399,29 +375,16 @@ async function loadKecamatanFilter() {
     
     if (error) throw error;
     
-    if (DEBUG) console.log(`✅ Loaded ${data?.length || 0} kecamatan`);
-    
     select.innerHTML = '<option value="">Semua Kecamatan</option>';
-    
-    if (data && data.length > 0) {
-      data.forEach(k => {
-        const opt = document.createElement('option');
-        opt.value = k.id;
-        opt.textContent = k.nama;
-        select.appendChild(opt);
-      });
-    } else {
-      // Fallback hardcoded
-      select.innerHTML += `
-        <option value="8">Kepahiang</option><option value="9">Tebat Karai</option>
-        <option value="10">Merigi</option><option value="11">Kabawetan</option>
-        <option value="12">Muara Kemumu</option><option value="13">Bermani Ilir</option>
-        <option value="14">Seberang Musi</option><option value="15">Ujan Mas</option>
-      `;
-    }
+    data.forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k.id;
+      opt.textContent = k.nama;
+      select.appendChild(opt);
+    });
     
   } catch (err) {
-    console.error('❌ loadKecamatanFilter error:', err);
+    console.error('❌ Gagal load kecamatan:', err);
     // Fallback hardcoded
     select.innerHTML = `
       <option value="">Semua Kecamatan</option>
@@ -443,64 +406,110 @@ function setupFilters() {
     const filters = {
       kecamatan_id: document.getElementById('filterKecamatan')?.value || null,
       status: document.getElementById('filterStatus')?.value || null,
-      kategori: document.getElementById('filterKategori')?.value || null,
-      date_from: document.getElementById('filterDate')?.value || null,
-      date_to: null
+      jenis: document.getElementById('filterJenis')?.value || null
     };
     
     showLoadingState();
+    await fetchKoordinasiData(filters);
+    renderTable(koordinasiData);
+    renderStats(koordinasiData);
     
-    try {
-      await fetchDashboardData(filters);
-      renderStats(dashboardData);
-      await initCharts(dashboardData);
-      renderRecentTable(dashboardData);
-      updateEarlyWarning(dashboardData);
-      
-      window.app.showToast('🔍 Filter diterapkan', 'info');
-    } catch (err) {
-      console.error('Filter apply error:', err);
-      window.app.showToast('Gagal terapkan filter', 'error');
-    }
+    window.app.showToast('🔍 Filter diterapkan', 'info');
   });
 }
 
 // ==========================================
-// 🗺️ MINI MAP
+// 🔄 REAL-TIME SUBSCRIPTION
 // ==========================================
-function initMiniMap() {
-  const mapContainer = document.getElementById('miniMap');
-  if (!mapContainer || typeof L === 'undefined') return;
+function setupRealtimeSubscription() {
+  if (!window.sbClient?.channel) {
+    console.warn('⚠️ Realtime not available');
+    return;
+  }
+  
+  window.sbClient
+    .channel('public:koordinasi')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'koordinasi'
+    }, async (payload) => {
+      if (DEBUG) console.log('🔄 Realtime update:', payload.eventType, payload.new?.id);
+      
+      // Re-fetch data & re-render
+      showLoadingState();
+      await fetchKoordinasiData(currentFilters);
+      renderTable(koordinasiData);
+      renderStats(koordinasiData);
+      
+      // Notify user
+      const messages = {
+        'INSERT': '🆕 Data koordinasi baru ditambahkan',
+        'UPDATE': '🔄 Data koordinasi diperbarui',
+        'DELETE': '🗑️ Data koordinasi dihapus'
+      };
+      window.app.showToast(messages[payload.eventType] || '📊 Data diperbarui', 'info');
+    })
+    .subscribe((status) => {
+      if (DEBUG) console.log('📡 Realtime subscription status:', status);
+    });
+}
+
+// ==========================================
+// 📥 EXPORT CSV
+// ==========================================
+document.getElementById('btnExport')?.addEventListener('click', async () => {
+  const btn = document.getElementById('btnExport');
+  window.app.setLoading(btn, true);
   
   try {
-    const miniMap = L.map('miniMap', {
-      center: [-3.648, 102.626],
-      zoom: 10,
-      zoomControl: false,
-      scrollWheelZoom: false,
-      dragging: false
-    });
+    // Fetch all data for export (no pagination)
+    let query = window.sbClient
+      .from('koordinasi')
+      .select(`
+        id, judul, jenis_kegiatan, tanggal, lokasi,
+        peserta, notulensi, tindak_lanjut, status,
+        kecamatan (nama), profiles (nama_lengkap)
+      `)
+      .order('tanggal', { ascending: false });
     
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap'
-    }).addTo(miniMap);
+    // Apply active filters
+    if (currentFilters.kecamatan_id) query = query.eq('kecamatan_id', currentFilters.kecamatan_id);
+    if (currentFilters.status) query = query.eq('status', currentFilters.status);
     
-    const critical = dashboardData?.filter(d => d.risiko === 'Kritis').slice(0, 3) || [];
-    critical.forEach(d => {
-      if (d._raw?.lokasi_lat && d._raw?.lokasi_lng) {
-        L.circleMarker([d._raw.lokasi_lat, d._raw.lokasi_lng], {
-          radius: 6,
-          fillColor: '#991b1b',
-          color: '#fff',
-          weight: 2,
-          fillOpacity: 0.9
-        }).addTo(miniMap).bindPopup(`<strong>${d.judul}</strong><br>${d.kec}`);
-      }
-    });
+    const { data, error } = await query;
+    if (error) throw error;
     
-    window.miniMapInstance = miniMap;
+    // Convert to CSV
+    const csv = [
+      ['ID', 'Tanggal', 'Judul', 'Jenis', 'Lokasi', 'Kecamatan', 'Peserta', 'Status', 'Notulensi', 'Tindak Lanjut'].join(','),
+      ...data.map(d => [
+        d.id,
+        d.tanggal,
+        `"${(d.judul || '').replace(/"/g, '""')}"`,
+        d.jenis_kegiatan || '-',
+        `"${(d.lokasi || '').replace(/"/g, '""')}"`,
+        d.kecamatan?.nama || '-',
+        `"${(d.peserta || '').replace(/"/g, '""')}"`,
+        d.status,
+        `"${(d.notulensi || '').replace(/"/g, '""')}"`,
+        `"${(d.tindak_lanjut || '').replace(/"/g, '""')}"`
+      ].join(','))
+    ].join('\n');
+    
+    // Download
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `koordinasi_sipandai_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    
+    window.app.showToast('✅ Data berhasil diexport', 'success');
     
   } catch (err) {
-    console.warn('⚠️ Mini map init failed:', err);
+    console.error('Export error:', err);
+    window.app.showToast('Gagal export: ' + err.message, 'error');
+  } finally {
+    window.app.setLoading(btn, false);
   }
-}
+});
