@@ -64,16 +64,16 @@ async function fetchKoordinasiData(filters = {}) {
     currentFilters = { ...filters };
     const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
     
-    // Query ke tabel 'koordinasi' dengan join tabel terkait
+    // ✅ FIX: Hapus join 'profiles' karena relasi belum ada
     let query = window.sbClient
       .from('koordinasi')
       .select(`
         id, judul, jenis_kegiatan, tanggal, lokasi,
         peserta, notulensi, tindak_lanjut, status,
         created_at, updated_at,
-        kecamatan_id,
-        kecamatan (id, nama),
-        profiles (nama_lengkap)
+        kecamatan_id, created_by,
+        kecamatan (id, nama)
+        -- profiles (nama_lengkap) ← HAPUS INI
       `, { count: 'exact' })
       .order('tanggal', { ascending: false });
     
@@ -98,11 +98,9 @@ async function fetchKoordinasiData(filters = {}) {
     if (error) {
       console.error('❌ Supabase query error:', error);
       
-      // Error spesifik untuk tabel tidak ada
       if (error.code === '42P01') {
         throw new Error('Tabel koordinasi belum tersedia. Hubungi administrator.');
       }
-      // Error permission
       if (error.code === '42501') {
         throw new Error('Akses ditolak. Periksa hak akses Anda.');
       }
@@ -117,7 +115,7 @@ async function fetchKoordinasiData(filters = {}) {
     
   } catch (err) {
     console.error('❌ fetchKoordinasiData error:', err);
-    throw err; // Re-throw agar ditangani di initKoordinasiPage
+    throw err;
   }
 }
 
@@ -174,7 +172,18 @@ function renderTable(data) {
     return;
   }
   
+  // Get current user name from localStorage
+  const currentUser = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
+  
   data.forEach(item => {
+    // Try to get pelapor name
+    let pelaporName = 'Unknown';
+    if (item.created_by === currentUser.id) {
+      pelaporName = currentUser.nama || 'Saya';
+    } else {
+      pelaporName = item.created_by ? 'User ' + item.created_by.slice(0, 8) + '...' : '-';
+    }
+    
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><strong>#${item.id}</strong></td>
