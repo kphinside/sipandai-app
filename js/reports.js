@@ -13,8 +13,22 @@ let currentFilters = {};
 // ==========================================
 // 1. INIT & FETCH DATA
 // ==========================================
+// Auto-load detail jika ada parameter report_id di URL
 document.addEventListener('DOMContentLoaded', async () => {
-  await initReportPage();
+  // ... kode existing ...
+  
+  // Cek URL parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const reportId = urlParams.get('report_id');
+  
+  if (reportId) {
+    // Tunggu inisialisasi selesai, lalu buka detail
+    setTimeout(async () => {
+      await window.openReportModal?.(parseInt(reportId));
+      // Scroll ke tabel agar modal terlihat
+      document.querySelector('.list-section')?.scrollIntoView({ behavior: 'smooth' });
+    }, 500);
+  }
 });
 
 async function initReportPage() {
