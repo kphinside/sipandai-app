@@ -75,73 +75,67 @@ async function loadMarkersFromSupabase() {
     return;
   }
   
-  if (DEBUG) console.log('📡 Fetching markers from Supabase...');
+  console.log('📡 Fetching markers from Supabase...');
   
   try {
-    // ✅ QUERY SIMPLE: Hindari join yang bermasalah
-    // Ambil hanya field yang WAJIB untuk marker
+    // ✅ QUERY SEDERHANA: Hindari kombinasi .eq() dan .or() yang kompleks
     const { data, error } = await window.sbClient
       .from('conflict_reports')
       .select(`
         id, judul, kategori, tingkat_risiko, status,
-        lokasi_lat, lokasi_lng, alamat_lokasi, created_at,
-        kecamatan_id
+        lokasi_lat, lokasi_lng, alamat_lokasi, created_at
       `)
-      .eq('status', 'baru')
-      .or('status.eq.diproses')
-      .not('lokasi_lat', 'is', null)  // ✅ Pastikan koordinat ada
+      // ✅ Gunakan .in() untuk multiple status
+      .in('status', ['baru', 'diproses'])
+      // ✅ Pastikan koordinat ada
+      .not('lokasi_lat', 'is', null)
       .not('lokasi_lng', 'is', null)
       .order('created_at', { ascending: false });
     
+    console.log('📡 Query result:', { data, error });
+    
     if (error) {
-      console.error('❌ Supabase query error:', error);
+      console.error('❌ Supabase error:', error);
       throw error;
     }
     
-    if (DEBUG) console.log(`✅ Fetched ${data?.length || 0} reports`);
+    console.log(`✅ Fetched ${data?.length || 0} reports`);
     
     // Clear marker lama
     markersLayer.clearLayers();
     
     if (!data || data.length === 0) {
-      if (DEBUG) console.log('⚠️ No markers to display');
+      console.warn('⚠️ No markers to display');
+      console.log('💡 Kemungkinan penyebab:');
+      console.log('  1. Status data bukan "baru" atau "diproses"');
+      console.log('  2. lokasi_lat atau lokasi_lng NULL');
+      console.log('  3. Data ada tapi filter .in() tidak match');
       return;
     }
     
-    // Render setiap marker
+    // Render markers
     let renderedCount = 0;
     data.forEach(report => {
-      // Validasi koordinat
-      if (!report.lokasi_lat || !report.lokasi_lng) {
-        if (DEBUG) console.warn(`⚠️ Skipping report #${report.id}: missing coordinates`);
-        return;
-      }
-      
-      // Validasi bounds (opsional, untuk debug)
       const lat = parseFloat(report.lokasi_lat);
       const lng = parseFloat(report.lokasi_lng);
       
-      if (lat < MAP_CONFIG.bounds[0][0] || lat > MAP_CONFIG.bounds[1][0] ||
-          lng < MAP_CONFIG.bounds[0][1] || lng > MAP_CONFIG.bounds[1][1]) {
-        if (DEBUG) console.warn(`⚠️ Report #${report.id} outside bounds: [${lat}, ${lng}]`);
-        // Tetap render, tapi beri warning
+      if (isNaN(lat) || isNaN(lng)) {
+        console.warn(`⚠️ Invalid coordinates for report #${report.id}:`, { lat, lng });
+        return;
       }
       
-      // Format data dengan fallback values
       const markerData = {
         id: report.id,
         title: report.judul || 'Tanpa Judul',
         lat: lat,
         lng: lng,
-        risk: report.tingkat_risiko || 'Sedang', // Default jika null
-        category: report.kategori || 'Lainnya',   // Default jika null
-        desc: report.alamat_lokasi || report.deskripsi || '-',
-        status: report.status || 'baru',
-        kecamatan_id: report.kecamatan_id
+        risk: report.tingkat_risiko || 'Sedang',
+        category: report.kategori || 'Lainnya',
+        desc: report.alamat_lokasi || '-',
+        status: report.status
       };
       
-      // Buat marker
-      const marker = L.circleMarker([markerData.lat, markerData.lng], {
+      const marker = L.circleMarker([lat, lng], {
         radius: 10,
         fillColor: RISK_COLORS[markerData.risk] || '#eab308',
         color: '#fff',
@@ -150,21 +144,19 @@ async function loadMarkersFromSupabase() {
         fillOpacity: 0.95
       }).addTo(markersLayer);
       
-      // Simpan metadata untuk filter
       marker.options.risk = markerData.risk;
       marker.options.category = markerData.category;
       marker.options.id = markerData.id;
       
-      // Popup content
       marker.bindPopup(`
         <div style="min-width:220px">
-          <strong style="display:block;margin-bottom:6px;font-size:1.05em">${markerData.title}</strong>
-          <div style="font-size:0.85em;color:#475569;margin-bottom:4px">📍 ${report.alamat_lokasi || '-'}</div>
-          <div style="font-size:0.85em;color:#475569;margin-bottom:8px">
+          <strong style="display:block;margin-bottom:6px">${markerData.title}</strong>
+          <div style="font-size:0.85em;color:#475569">📍 ${report.alamat_lokasi || '-'}</div>
+          <div style="font-size:0.85em;color:#475569;margin:4px 0">
             🏷️ ${markerData.category} • 
-            <span style="color:${RISK_COLORS[markerData.risk]};font-weight:600">${markerData.risk}</span>
+            <span style="color:${RISK_COLORS[markerData.risk]}">${markerData.risk}</span>
           </div>
-          <p style="margin:0;font-size:0.85em;line-height:1.4;color:#1e293b">${markerData.desc}</p>
+          <p style="margin:0;font-size:0.85em">${markerData.desc}</p>
         </div>
       `);
       
@@ -172,18 +164,14 @@ async function loadMarkersFromSupabase() {
       renderedCount++;
     });
     
-    if (DEBUG) console.log(`✅ Rendered ${renderedCount} markers`);
+    console.log(`✅ Rendered ${renderedCount} markers`);
     
-    // Auto-fit view jika ada marker
-    if (renderedCount > 0 && markersLayer.getLayers().length > 0) {
+    if (renderedCount > 0) {
       map.fitBounds(markersLayer.getBounds().pad(0.2));
     }
     
   } catch (err) {
     console.error('❌ Failed to load markers:', err);
-    if (DEBUG) {
-      alert('Gagal memuat data peta. Cek console untuk detail.');
-    }
   }
 }
 
