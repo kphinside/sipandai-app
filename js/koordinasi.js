@@ -265,6 +265,62 @@ function renderStakeholders() {
   });
 }
 
+// ==========================================
+// 🗄️ RENDER ARCHIVE (Diskusi Selesai)
+// ==========================================
+async function renderArchive() {
+  const container = document.getElementById('archiveList');
+  if (!container) return;
+  
+  container.innerHTML = '<div class="archive-empty">⏳ Memuat arsip...</div>';
+  
+  try {
+    // Fetch hanya yang status 'selesai'
+    const { data, error } = await window.sbClient
+      .from('koordinasi')
+      .select(`id, judul, jenis_kegiatan, tanggal, kecamatan (nama), updated_at`)
+      .eq('status', 'selesai')
+      .order('updated_at', { ascending: false })
+      .limit(20); // Batasi 20 item terbaru
+    
+    if (error) throw error;
+    
+    container.innerHTML = '';
+    
+    if (!data || data.length === 0) {
+      container.innerHTML = '<div class="archive-empty">Belum ada diskusi yang selesai.</div>';
+      return;
+    }
+    
+    data.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'archive-item';
+      
+      const tgl = item.tanggal ? window.app.formatDate(item.tanggal) : '-';
+      const selesai = item.updated_at ? window.app.formatDate(item.updated_at) : '-';
+      
+      div.innerHTML = `
+        <div class="archive-info">
+          <div class="archive-title">${item.judul}</div>
+          <div class="archive-meta">
+            📅 ${tgl} • 📍 ${item.kecamatan?.nama || '-'} • ✅ Selesai: ${selesai}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <span class="archive-badge">✅ Selesai</span>
+          <button class="btn-action" onclick="viewDetail(${item.id})" title="Lihat Detail">👁️</button>
+        </div>
+      `;
+      container.appendChild(div);
+    });
+    
+    if (DEBUG) console.log(`✅ Loaded ${data.length} archived items`);
+    
+  } catch (err) {
+    console.error('❌ Gagal load arsip:', err);
+    container.innerHTML = '<div class="archive-empty text-danger">Gagal memuat arsip.</div>';
+  }
+}
 // Global function untuk mark as done
 window.markAsDone = async (id) => {
   if (!confirm('Tandai koordinasi ini sebagai selesai?')) return;
@@ -653,6 +709,32 @@ function setupModal() {
 document.addEventListener('DOMContentLoaded', () => {
   // ... kode existing ...
   setupModal(); // ✅ Tambahkan ini
+});
+
+// ==========================================
+// 🗄️ SETUP LOAD ARCHIVE BUTTON
+// ==========================================
+function setupArchiveButton() {
+  const btn = document.getElementById('btnLoadArchive');
+  if (!btn) return;
+  
+  btn.addEventListener('click', async () => {
+    window.app.setLoading(btn, true);
+    btn.textContent = '⏳ Memuat...';
+    
+    await renderArchive();
+    
+    window.app.setLoading(btn, false);
+    btn.textContent = '🔄 Load Arsip';
+    
+    window.app.showToast('📦 Arsip dimuat', 'info');
+  });
+}
+
+// Panggil di DOMContentLoaded
+document.addEventListener('DOMContentLoaded', async () => {
+  // ... kode existing ...
+  setupArchiveButton(); // ✅ Tambahkan ini
 });
 
 // ==========================================
