@@ -1,13 +1,19 @@
 /**
  * js/dashboard.js
  * Logic Dashboard: Stats, Charts, Recent Table, Filters & Early Warning
- * ✅ Debug Mode ✅ Fallback ✅ Error Handling Lengkap
+ * ✅ Chart.js v3 Compatible ✅ Safe Destroy ✅ Error Handling Robust
  */
 
 // State global
 let dashboardData = [];
 let currentFilters = {};
-const DEBUG = true; // ✅ Set true untuk lihat log detail di console
+const DEBUG = true;
+
+// Store chart instances properly
+let chartInstances = {
+  tren: null,
+  kategori: null
+};
 
 // ==========================================
 // 1. INIT & FETCH DATA
@@ -15,9 +21,16 @@ const DEBUG = true; // ✅ Set true untuk lihat log detail di console
 document.addEventListener('DOMContentLoaded', async () => {
   if (DEBUG) console.log('🚀 Initializing dashboard...');
   
+  // Pastikan Chart.js loaded
+  if (typeof Chart === 'undefined') {
+    console.error('❌ Chart.js not loaded!');
+    window.app.showToast('Gagal memuat library grafik', 'error');
+    return;
+  }
+  
   await initDashboard();
   setupFilters();
-  await loadKecamatanFilter(); // Pastikan await agar load selesai sebelum user interaksi
+  await loadKecamatanFilter();
 });
 
 async function initDashboard() {
@@ -36,7 +49,6 @@ async function initDashboard() {
     
   } catch (err) {
     console.error('❌ Dashboard init error:', err);
-    if (DEBUG) console.log('💡 Tips: Cek console untuk detail error Supabase');
     window.app.showToast('Gagal memuat dashboard: ' + err.message, 'error');
   }
 }
@@ -46,55 +58,39 @@ async function fetchDashboardData(filters = {}) {
     currentFilters = { ...filters };
     const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
     
-    if (DEBUG) {
-      console.log('👤 User role:', user.role);
-      console.log('🔍 Filters:', filters);
-    }
-    
-    // Query dasar - pastikan kolom yang dipilih ADA di database
     let query = window.sbClient
       .from('conflict_reports')
       .select(`
         id, judul, kategori, tingkat_risiko, status, created_at,
-        kecamatan_id,
-        lokasi_lat, lokasi_lng,
+        kecamatan_id, lokasi_lat, lokasi_lng,
         kecamatan (id, nama),
         desa (id, nama),
         profiles (nama_lengkap)
       `, { count: 'exact' })
       .order('created_at', { ascending: false });
     
-    // Terapkan filter
-    if (filters.kecamatan_id) {
-      query = query.eq('kecamatan_id', parseInt(filters.kecamatan_id));
-      if (DEBUG) console.log('🔒 Filter kecamatan_id:', filters.kecamatan_id);
-    }
+    // Apply filters
+    if (filters.kecamatan_id) query = query.eq('kecamatan_id', parseInt(filters.kecamatan_id));
     if (filters.status) query = query.eq('status', filters.status);
     if (filters.kategori) query = query.eq('kategori', filters.kategori);
     if (filters.tingkat_risiko) query = query.eq('tingkat_risiko', filters.tingkat_risiko);
     if (filters.date_from) query = query.gte('created_at', filters.date_from);
     if (filters.date_to) query = query.lte('created_at', filters.date_to);
     
-    // RLS: operator hanya lihat data kecamatannya
+    // RLS filter for operator
     if (user.role === 'operator_kec' && user.kecamatan_id) {
       query = query.eq('kecamatan_id', user.kecamatan_id);
-      if (DEBUG) console.log('🔐 RLS: Operator filtered to kecamatan_id:', user.kecamatan_id);
     }
     
-    // Ambil 5 terbaru untuk tabel recent
     query = query.limit(5);
     
-    if (DEBUG) console.log('🔎 Executing Supabase query...');
     const { data, error, count } = await query;
     
     if (error) {
       console.error('❌ Supabase query error:', error);
-      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
+      throw new Error(`Database error: ${error.message}`);
     }
     
-    if (DEBUG) console.log(`✅ Query success: ${data?.length || 0} rows, count: ${count}`);
-    
-    // Format data
     dashboardData = (data || []).map(d => ({
       id: d.id,
       tgl: d.created_at,
@@ -113,33 +109,25 @@ async function fetchDashboardData(filters = {}) {
   } catch (err) {
     console.error('❌ fetchDashboardData error:', err);
     
-    // Fallback: coba query tanpa join (untuk debugging)
+    // Fallback: simple query without joins
     try {
-      if (DEBUG) console.log('🔄 Trying fallback query without joins...');
-      const { data: fallbackData, error: fallbackError } = await window.sbClient
+      const { data: fallbackData } = await window.sbClient
         .from('conflict_reports')
-        .select('id, judul, kategori, tingkat_risiko, status, created_at, kecamatan_id')
+        .select('id, judul, kategori, tingkat_risiko, status, created_at')
         .limit(5)
         .order('created_at', { ascending: false });
       
-      if (!fallbackError && fallbackData) {
-        console.warn('⚠️ Fallback query worked! Join tables might have RLS issues.');
+      if (fallbackData) {
         dashboardData = fallbackData.map(d => ({
-          id: d.id,
-          tgl: d.created_at,
-          judul: d.judul,
-          kec: '-',
-          desa: '-',
-          kat: d.kategori || 'Lainnya',
-          risiko: d.tingkat_risiko || 'Sedang',
-          status: d.status,
-          pelapor: '-',
-          _raw: d
+          id: d.id, tgl: d.created_at, judul: d.judul,
+          kec: '-', desa: '-', kat: d.kategori || 'Lainnya',
+          risiko: d.tingkat_risiko || 'Sedang', status: d.status,
+          pelapor: '-', _raw: d
         }));
         return dashboardData;
       }
-    } catch (fallbackErr) {
-      console.error('❌ Fallback query also failed:', fallbackErr);
+    } catch (e) {
+      console.warn('⚠️ Fallback also failed');
     }
     
     throw err;
@@ -147,15 +135,13 @@ async function fetchDashboardData(filters = {}) {
 }
 
 function showLoadingState() {
-  document.getElementById('statTotal').textContent = '...';
-  document.getElementById('statProses').textContent = '...';
-  document.getElementById('statSelesai').textContent = '...';
-  document.getElementById('statMerah').textContent = '...';
+  ['statTotal', 'statProses', 'statSelesai', 'statMerah'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '...';
+  });
   
   const tbody = document.getElementById('tableBody');
-  if (tbody) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center">⏳ Memuat data...</td></tr>';
-  }
+  if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center">⏳ Memuat data...</td></tr>';
 }
 
 // ==========================================
@@ -181,16 +167,30 @@ function animateValue(id, start, end, duration) {
   const step = (timestamp) => {
     if (!startTimestamp) startTimestamp = timestamp;
     const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-    const value = Math.floor(progress * (end - start) + start);
-    obj.textContent = value;
+    obj.textContent = Math.floor(progress * (end - start) + start);
     if (progress < 1) window.requestAnimationFrame(step);
   };
   window.requestAnimationFrame(step);
 }
 
 // ==========================================
-// 📈 CHARTS
+// 📈 CHARTS - Chart.js v3 Compatible
 // ==========================================
+
+// ✅ Helper: Safe destroy chart instance (Chart.js v3+)
+function safeDestroyChart(chartKey) {
+  try {
+    const chart = chartInstances[chartKey];
+    if (chart && typeof chart.destroy === 'function') {
+      chart.destroy();
+      chartInstances[chartKey] = null;
+      if (DEBUG) console.log(`🗑️ Chart ${chartKey} destroyed`);
+    }
+  } catch (err) {
+    console.warn(`⚠️ Failed to destroy chart ${chartKey}:`, err);
+  }
+}
+
 async function initCharts(data) {
   await initTrenChart();
   await initKategoriChart(data);
@@ -201,7 +201,10 @@ async function initTrenChart() {
   if (!ctx) return;
   
   try {
-    // Ambil data 30 hari terakhir
+    // Destroy existing chart safely
+    safeDestroyChart('tren');
+    
+    // Fetch trend data (30 days)
     const { data: trenData, error } = await window.sbClient
       .from('conflict_reports')
       .select('created_at')
@@ -210,7 +213,7 @@ async function initTrenChart() {
     
     if (error) throw error;
     
-    // Group by date (7 hari terakhir)
+    // Prepare labels & values (last 7 days)
     const dateMap = {};
     for (let i = 6; i >= 0; i--) {
       const date = new Date(Date.now() - i*24*60*60*1000);
@@ -224,9 +227,8 @@ async function initTrenChart() {
       if (dateMap[key] !== undefined) dateMap[key]++;
     });
     
-    if (window.chartTren) window.chartTren.destroy();
-    
-    window.chartTren = new Chart(ctx, {
+    // Create new chart (Chart.js v3+ syntax)
+    chartInstances.tren = new Chart(ctx, {
       type: 'line',
       data: {
         labels: Object.keys(dateMap),
@@ -236,21 +238,30 @@ async function initTrenChart() {
           borderColor: '#1e40af',
           backgroundColor: 'rgba(30, 64, 175, 0.1)',
           tension: 0.3,
-          fill: true
+          fill: true,
+          pointRadius: 3,
+          pointHoverRadius: 5
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        plugins: { 
+          legend: { display: false },
+          tooltip: { enabled: true }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          x: { grid: { display: false } }
+        }
       }
     });
     
+    if (DEBUG) console.log('✅ Tren chart initialized');
+    
   } catch (err) {
-    console.error('Gagal load chart tren:', err);
-    // Fallback: chart kosong
-    if (window.chartTren) window.chartTren.destroy();
+    console.error('❌ Gagal load chart tren:', err);
+    safeDestroyChart('tren');
   }
 }
 
@@ -259,6 +270,8 @@ async function initKategoriChart(data) {
   if (!ctx) return;
   
   try {
+    safeDestroyChart('kategori');
+    
     const kategoriCount = { 'SARA': 0, 'Ekonomi': 0, 'Politik': 0, 'Bencana': 0, 'Lainnya': 0 };
     
     data?.forEach(d => {
@@ -270,9 +283,7 @@ async function initKategoriChart(data) {
       }
     });
     
-    if (window.chartKategori) window.chartKategori.destroy();
-    
-    window.chartKategori = new Chart(ctx, {
+    chartInstances.kategori = new Chart(ctx, {
       type: 'doughnut',
       data: {
         labels: Object.keys(kategoriCount),
@@ -280,19 +291,26 @@ async function initKategoriChart(data) {
           data: Object.values(kategoriCount),
           backgroundColor: ['#dc2626', '#059669', '#1e40af', '#f59e0b', '#64748b'],
           borderWidth: 2,
-          borderColor: '#fff'
+          borderColor: '#fff',
+          hoverOffset: 4
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom' } },
+        plugins: { 
+          legend: { position: 'bottom', labels: { usePointStyle: true, padding: 12 } },
+          tooltip: { enabled: true }
+        },
         cutout: '65%'
       }
     });
     
+    if (DEBUG) console.log('✅ Kategori chart initialized');
+    
   } catch (err) {
-    console.error('Gagal load chart kategori:', err);
+    console.error('❌ Gagal load chart kategori:', err);
+    safeDestroyChart('kategori');
   }
 }
 
@@ -354,7 +372,7 @@ function updateEarlyWarning(data) {
 }
 
 // ==========================================
-// 🔍 FILTER: LOAD KECAMATAN (FIXED)
+// 🔍 FILTER: LOAD KECAMATAN
 // ==========================================
 async function loadKecamatanFilter() {
   const select = document.getElementById('filterKecamatan');
@@ -371,14 +389,10 @@ async function loadKecamatanFilter() {
       .select('id, nama')
       .order('nama');
     
-    if (error) {
-      console.error('❌ Error fetching kecamatan:', error);
-      throw error;
-    }
+    if (error) throw error;
     
     if (DEBUG) console.log(`✅ Loaded ${data?.length || 0} kecamatan`);
     
-    // Reset dropdown (keep default option)
     select.innerHTML = '<option value="">Semua Kecamatan</option>';
     
     if (data && data.length > 0) {
@@ -389,35 +403,25 @@ async function loadKecamatanFilter() {
         select.appendChild(opt);
       });
     } else {
-      console.warn('⚠️ No kecamatan data found');
       // Fallback hardcoded
       select.innerHTML += `
-        <option value="8">Kepahiang</option>
-        <option value="9">Tebat Karai</option>
-        <option value="10">Merigi</option>
-        <option value="11">Kabawetan</option>
-        <option value="12">Muara Kemumu</option>
-        <option value="13">Bermani Ilir</option>
-        <option value="14">Seberang Musi</option>
-        <option value="15">Ujan Mas</option>
+        <option value="8">Kepahiang</option><option value="9">Tebat Karai</option>
+        <option value="10">Merigi</option><option value="11">Kabawetan</option>
+        <option value="12">Muara Kemumu</option><option value="13">Bermani Ilir</option>
+        <option value="14">Seberang Musi</option><option value="15">Ujan Mas</option>
       `;
     }
     
   } catch (err) {
     console.error('❌ loadKecamatanFilter error:', err);
-    // Fallback hardcoded jika query gagal
+    // Fallback hardcoded
     select.innerHTML = `
       <option value="">Semua Kecamatan</option>
-      <option value="8">Kepahiang</option>
-      <option value="9">Tebat Karai</option>
-      <option value="10">Merigi</option>
-      <option value="11">Kabawetan</option>
-      <option value="12">Muara Kemumu</option>
-      <option value="13">Bermani Ilir</option>
-      <option value="14">Seberang Musi</option>
-      <option value="15">Ujan Mas</option>
+      <option value="8">Kepahiang</option><option value="9">Tebat Karai</option>
+      <option value="10">Merigi</option><option value="11">Kabawetan</option>
+      <option value="12">Muara Kemumu</option><option value="13">Bermani Ilir</option>
+      <option value="14">Seberang Musi</option><option value="15">Ujan Mas</option>
     `;
-    console.warn('⚠️ Using hardcoded kecamatan fallback');
   }
 }
 
@@ -435,8 +439,6 @@ function setupFilters() {
       date_from: document.getElementById('filterDate')?.value || null,
       date_to: null
     };
-    
-    if (DEBUG) console.log('🔍 Applying filters:', filters);
     
     showLoadingState();
     
@@ -456,37 +458,41 @@ function setupFilters() {
 }
 
 // ==========================================
-// 🗺️ MINI MAP (Simple)
+// 🗺️ MINI MAP
 // ==========================================
 function initMiniMap() {
   const mapContainer = document.getElementById('miniMap');
   if (!mapContainer || typeof L === 'undefined') return;
   
-  const miniMap = L.map('miniMap', {
-    center: [-3.648, 102.626],
-    zoom: 10,
-    zoomControl: false,
-    scrollWheelZoom: false,
-    dragging: false
-  });
-  
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-  }).addTo(miniMap);
-  
-  // Marker untuk laporan kritis
-  const critical = dashboardData?.filter(d => d.risiko === 'Kritis').slice(0, 3) || [];
-  critical.forEach(d => {
-    if (d._raw?.lokasi_lat && d._raw?.lokasi_lng) {
-      L.circleMarker([d._raw.lokasi_lat, d._raw.lokasi_lng], {
-        radius: 6,
-        fillColor: '#991b1b',
-        color: '#fff',
-        weight: 2,
-        fillOpacity: 0.9
-      }).addTo(miniMap).bindPopup(`<strong>${d.judul}</strong><br>${d.kec}`);
-    }
-  });
-  
-  window.miniMap = miniMap;
+  try {
+    const miniMap = L.map('miniMap', {
+      center: [-3.648, 102.626],
+      zoom: 10,
+      zoomControl: false,
+      scrollWheelZoom: false,
+      dragging: false
+    });
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(miniMap);
+    
+    const critical = dashboardData?.filter(d => d.risiko === 'Kritis').slice(0, 3) || [];
+    critical.forEach(d => {
+      if (d._raw?.lokasi_lat && d._raw?.lokasi_lng) {
+        L.circleMarker([d._raw.lokasi_lat, d._raw.lokasi_lng], {
+          radius: 6,
+          fillColor: '#991b1b',
+          color: '#fff',
+          weight: 2,
+          fillOpacity: 0.9
+        }).addTo(miniMap).bindPopup(`<strong>${d.judul}</strong><br>${d.kec}`);
+      }
+    });
+    
+    window.miniMapInstance = miniMap;
+    
+  } catch (err) {
+    console.warn('⚠️ Mini map init failed:', err);
+  }
 }
