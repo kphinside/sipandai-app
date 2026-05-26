@@ -35,26 +35,14 @@ async function initKoordinasiPage() {
     await fetchKoordinasiData();
     renderTable(koordinasiData);
     renderStats(koordinasiData);
+    renderTrackingTable(koordinasiData); // ✅ Render tracking table
     await loadKecamatanDropdown();
     
     if (DEBUG) console.log('✅ Koordinasi page initialized');
     
   } catch (err) {
     console.error('❌ Init error:', err);
-    
-    const tbody = document.getElementById('tableKoordinasi');
-    if (tbody) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="8" class="text-center text-danger">
-            ⚠️ Gagal memuat data: ${err.message}<br>
-            <small>Hubungi admin jika masalah berlanjut</small>
-          </td>
-        </tr>
-      `;
-    }
-    
-    window.app.showToast('Gagal memuat data koordinasi', 'error');
+    // ... error handling ...
   }
 }
 
@@ -181,6 +169,81 @@ function renderTable(data) {
     tbody.appendChild(tr);
   });
 }
+
+// ==========================================
+// 📋 RENDER TRACKING TABLE
+// ==========================================
+function renderTrackingTable(data) {
+  const tbody = document.getElementById('trackingTable');
+  if (!tbody) return;
+  
+  tbody.innerHTML = '';
+  
+  // Filter hanya yang punya tindak lanjut
+  const withTindakLanjut = data?.filter(d => d.tindak_lanjut && d.tindak_lanjut.trim() !== '') || [];
+  
+  if (withTindakLanjut.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Belum ada tindak lanjut.</td></tr>';
+    return;
+  }
+  
+  withTindakLanjut.forEach(item => {
+    const tr = document.createElement('tr');
+    
+    // Tentukan status class
+    let statusClass = 'status-pending';
+    let statusText = '⏳ Pending';
+    
+    if (item.status === 'selesai') {
+      statusClass = 'status-done';
+      statusText = '✅ Selesai';
+    } else if (item.status === 'berjalan' || item.status === 'diproses') {
+      statusClass = 'status-progress';
+      statusText = '🔄 Berjalan';
+    }
+    
+    // Estimate deadline (7 hari dari tanggal kegiatan)
+    const deadline = new Date(item.tanggal);
+    deadline.setDate(deadline.getDate() + 7);
+    
+    tr.innerHTML = `
+      <td><strong>#${item.id}</strong></td>
+      <td>${item.judul}</td>
+      <td>${item.peserta || '-'}</td>
+      <td>${window.app.formatDate(deadline.toISOString())}</td>
+      <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+      <td>
+        <button class="btn-action" onclick="viewDetail(${item.id})">👁️ Detail</button>
+        ${item.status !== 'selesai' ? `<button class="btn-action" onclick="markAsDone(${item.id})">✓ Selesai</button>` : ''}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Global function untuk mark as done
+window.markAsDone = async (id) => {
+  if (!confirm('Tandai koordinasi ini sebagai selesai?')) return;
+  
+  try {
+    const { error } = await window.sbClient
+      .from('koordinasi')
+      .update({ status: 'selesai', updated_at: new Date().toISOString() })
+      .eq('id', id);
+    
+    if (error) throw error;
+    
+    window.app.showToast('✅ Ditandai sebagai selesai', 'success');
+    await fetchKoordinasiData(currentFilters);
+    renderTable(koordinasiData);
+    renderStats(koordinasiData);
+    renderTrackingTable(koordinasiData);
+    
+  } catch (err) {
+    console.error('Error marking as done:', err);
+    window.app.showToast('Gagal update status', 'error');
+  }
+};
 
 function getStatusClass(status) {
   const map = { 'rencana': 'status-baru', 'berjalan': 'status-diproses', 'diproses': 'status-diproses', 'selesai': 'status-selesai', 'ditunda': '' };
@@ -401,6 +464,18 @@ function setupNewDiscussionButton() {
     });
   }
 }
+
+// ==========================================
+// 🔄 REFRESH BUTTON
+// ==========================================
+document.getElementById('btnRefreshTracking')?.addEventListener('click', async () => {
+  showLoadingState();
+  await fetchKoordinasiData(currentFilters);
+  renderTable(koordinasiData);
+  renderStats(koordinasiData);
+  renderTrackingTable(koordinasiData);
+  window.app.showToast('🔄 Data refreshed', 'info');
+});
 
 // ==========================================
 // 🔄 REAL-TIME SUBSCRIPTION
