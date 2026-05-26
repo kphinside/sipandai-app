@@ -428,6 +428,55 @@ function setupFilters() {
 }
 
 // ==========================================
+// 🎯 SETUP TOMBOL "BUAT DISKUSI BARU"
+// ==========================================
+function setupNewDiscussionButton() {
+  const btnNew = document.getElementById('btnNewDiscussion');
+  const formSection = document.getElementById('formSection'); // Section form yang akan ditampilkan
+  
+  if (btnNew && formSection) {
+    btnNew.addEventListener('click', (e) => {
+      e.preventDefault();
+      
+      // Scroll ke form dan tampilkan
+      formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      // Highlight form (opsional, untuk UX)
+      formSection.classList.add('highlight');
+      setTimeout(() => formSection.classList.remove('highlight'), 2000);
+      
+      // Fokus ke field pertama
+      document.getElementById('koordinasiJudul')?.focus();
+      
+      if (DEBUG) console.log('🎯 New discussion form opened');
+    });
+  } else {
+    if (DEBUG) console.warn('⚠️ btnNewDiscussion or formSection not found');
+  }
+}
+
+// Panggil fungsi ini di initKoordinasiPage()
+async function initKoordinasiPage() {
+  showLoadingState();
+  
+  try {
+    await fetchKoordinasiData();
+    renderTable(koordinasiData);
+    renderStats(koordinasiData);
+    await loadKecamatanDropdown();
+    
+    // ✅ Tambahkan ini:
+    setupNewDiscussionButton();
+    
+    if (DEBUG) console.log('✅ Koordinasi page initialized');
+    
+  } catch (err) {
+    console.error('❌ Init error:', err);
+    // ... error handling ...
+  }
+}
+
+// ==========================================
 // 🔄 REAL-TIME SUBSCRIPTION
 // ==========================================
 function setupRealtimeSubscription() {
