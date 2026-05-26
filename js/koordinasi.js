@@ -420,6 +420,7 @@ function setupForm() {
     
     try {
       const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
+      const editId = btn.dataset.editId; // Cek apakah mode edit
       
       const payload = {
         judul: document.getElementById('koordinasiJudul').value.trim(),
@@ -431,21 +432,35 @@ function setupForm() {
         tindak_lanjut: document.getElementById('koordinasiTindakLanjut').value.trim() || null,
         status: document.getElementById('koordinasiStatus').value || 'rencana',
         kecamatan_id: document.getElementById('koordinasiKecamatan').value ? parseInt(document.getElementById('koordinasiKecamatan').value) : null,
-        created_by: user.id,
         updated_at: new Date().toISOString()
       };
       
-      if (!payload.judul) throw new Error('Judul wajib diisi');
-      if (!payload.tanggal) throw new Error('Tanggal wajib diisi');
+      if (!payload.judul || !payload.tanggal) throw new Error('Judul & Tanggal wajib diisi');
+
+      let error;
+      if (editId) {
+        // ✅ MODE UPDATE
+        const res = await window.sbClient.from('koordinasi').update(payload).eq('id', editId);
+        error = res.error;
+        delete btn.dataset.editId; // Reset mode edit
+        btn.textContent = '📤 Simpan Koordinasi'; // Kembalikan teks tombol
+        window.app.showToast('✅ Data berhasil diperbarui', 'success');
+      } else {
+        // ✅ MODE INSERT BARU
+        payload.created_by = user.id;
+        const res = await window.sbClient.from('koordinasi').insert([payload]);
+        error = res.error;
+        window.app.showToast('✅ Data koordinasi berhasil ditambahkan', 'success');
+      }
       
-      const { error } = await window.sbClient.from('koordinasi').insert([payload]);
       if (error) throw error;
       
-      window.app.showToast('✅ Data koordinasi berhasil ditambahkan', 'success');
       form.reset();
+      document.getElementById('formSection').style.display = 'none'; // Sembunyikan form setelah simpan
       await fetchKoordinasiData(currentFilters);
       renderTable(koordinasiData);
       renderStats(koordinasiData);
+      renderTrackingTable(koordinasiData);
       
     } catch (err) {
       console.error('❌ Submit error:', err);
@@ -455,8 +470,12 @@ function setupForm() {
     }
   });
   
+  // Reset tombol ke mode insert saat form di-reset manual
   document.getElementById('btnReset')?.addEventListener('click', () => {
-    document.getElementById('formKoordinasi').reset();
+    form.reset();
+    const btn = document.getElementById('btnSubmitKoordinasi');
+    btn.textContent = '📤 Simpan Koordinasi';
+    delete btn.dataset.editId;
   });
 }
 
