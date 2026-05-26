@@ -547,60 +547,186 @@ function setupModal() {
   });
 }
 
+// Global: Buka modal detail
 window.openReportModal = async (id) => {
   try {
-    let item = reportsData.find(d => d.id === id);
+    console.log('🔍 Loading report detail for ID:', id);
     
-    if (!item?._raw) {
-      const { data, error } = await window.sbClient
-        .from('conflict_reports')
-        .select(`
-          *, kecamatan(nama), desa(nama), profiles(nama_lengkap, role),
-          audit_logs(action, created_at)
-        `)
-        .eq('id', id)
-        .single();
+    // ✅ QUERY SEDERHANA: Hindari join yang bermasalah
+    const { data, error } = await window.sbClient
+      .from('conflict_reports')
+      .select(`
+        id, judul, deskripsi, kategori, tingkat_risiko, status,
+        lokasi_lat, lokasi_lng, alamat_lokasi, foto_url,
+        created_at, updated_at, kecamatan_id,
+        kecamatan (nama)
+        -- profiles (nama_lengkap) ← KOMEN DULU jika bermasalah
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      console.error('❌ Query error:', error);
       
-      if (error) throw error;
-      item = { _raw: data };
+      // Jika error karena join, coba query tanpa join
+      if (error.message?.includes('relationship') || error.code === 'PGRST301') {
+        console.warn('⚠️ Join failed, trying without joins...');
+        
+        const { data: simpleData, error: simpleError } = await window.sbClient
+          .from('conflict_reports')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (simpleError) throw simpleError;
+        
+        // Format data tanpa join
+        return showReportModal({
+          ...simpleData,
+          kecamatan: { nama: '-' },
+          profiles: { nama_lengkap: 'Unknown' }
+        });
+      }
+      
+      throw error;
     }
     
-    const d = item._raw;
+    console.log('✅ Report loaded:', data);
     
-    document.getElementById('modalTitle').textContent = `Laporan #${d.id}: ${d.judul}`;
-    document.getElementById('modalBody').innerHTML = `
-      <div class="modal-meta">
-        <div><span class="meta-label">Kategori</span><span class="meta-value">${d.kategori || 'Lainnya'}</span></div>
-        <div><span class="meta-label">Risiko</span><span class="meta-value ${window.app.getRisikoClass(d.tingkat_risiko)}">${window.app.formatRisiko(d.tingkat_risiko)}</span></div>
-        <div><span class="meta-label">Lokasi</span><span class="meta-value">${d.kecamatan?.nama || '-'}, ${d.desa?.nama || d.alamat_lokasi || '-'}</span></div>
-        <div><span class="meta-label">Koordinat</span><span class="meta-value">${d.lokasi_lat ? `${d.lokasi_lat}, ${d.lokasi_lng}` : '-'}</span></div>
-        <div><span class="meta-label">Status</span><span class="meta-value">${window.app.formatStatus(d.status)}</span></div>
-        <div><span class="meta-label">Pelapor</span><span class="meta-value">${d.profiles?.nama_lengkap || '-'}</span></div>
-        <div><span class="meta-label">Dibuat</span><span class="meta-value">${window.app.formatDate(d.created_at)}</span></div>
-        <div><span class="meta-label">Update</span><span class="meta-value">${d.updated_at ? window.app.formatDate(d.updated_at) : '-'}</span></div>
-      </div>
-      <p><strong>Deskripsi:</strong></p>
-      <p class="meta-desc">${d.deskripsi || '-'}</p>
-      ${d.foto_url ? `<p><strong>Bukti:</strong><br><a href="${d.foto_url}" target="_blank" class="btn-outline btn-sm">🖼️ Lihat Bukti</a></p>` : ''}
-      ${d.audit_logs?.length > 0 ? `<p class="mt-2"><strong>Riwayat:</strong><ul class="audit-list">${d.audit_logs.map(log => `<li><small>${window.app.formatDate(log.created_at)} - ${log.action}</small></li>`).join('')}</ul></p>` : ''}
-    `;
-    
-    const updateSection = document.getElementById('modalUpdateSection');
-    if (updateSection && canEditReport(item)) {
-      updateSection.classList.remove('d-none');
-      document.getElementById('updateReportId').value = d.id;
-      document.getElementById('updateStatusSelect').value = d.status;
-    } else {
-      updateSection?.classList.add('d-none');
-    }
-    
-    document.getElementById('modalDetail').classList.remove('d-none');
+    // Tampilkan modal dengan data
+    showReportModal(data);
     
   } catch (err) {
     console.error('Gagal buka detail:', err);
-    window.app.showToast('Gagal memuat detail laporan', 'error');
+    window.app.showToast('Gagal memuat detail: ' + err.message, 'error');
   }
 };
+
+// Helper function untuk menampilkan modal
+function showReportModal(data) {
+  const modal = document.getElementById('modalDetail');
+  const modalBody = document.getElementById('modalBody');
+  
+  if (!modal || !modalBody) {
+    console.error('❌ Modal elements not found!');
+    window.app.showToast('Modal tidak ditemukan', 'error');
+    return;
+  }
+  
+  // Set judul modal
+  const modalTitle = document.getElementById('modalTitle');
+  if (modalTitle) {
+    modalTitle.textContent = `Laporan #${data.id}: ${data.judul}`;
+  }
+  
+  // Format tanggal
+  const tglDibuat = data.created_at ? window.app.formatDate(data.created_at) : '-';
+  const tglUpdate = data.updated_at ? window.app.formatDate(data.updated_at) : '-';
+  
+  // Isi modal body
+  modalBody.innerHTML = `
+    <div class="modal-meta" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+      <div>
+        <span class="meta-label" style="color:#64748b;font-size:0.85rem">Kategori</span><br>
+        <strong>${data.kategori || 'Lainnya'}</strong>
+      </div>
+      <div>
+        <span class="meta-label" style="color:#64748b;font-size:0.85rem">Tingkat Risiko</span><br>
+        <span class="risiko-badge ${window.app.getRisikoClass?.(data.tingkat_risiko) || ''}" style="display:inline-block;padding:0.25rem 0.6rem;border-radius:999px;font-size:0.75rem;font-weight:600;background:${getRisikoColor(data.tingkat_risiko)};color:#fff">
+          ${window.app.formatRisiko?.(data.tingkat_risiko) || data.tingkat_risiko || 'Sedang'}
+        </span>
+      </div>
+      <div>
+        <span class="meta-label" style="color:#64748b;font-size:0.85rem">Lokasi</span><br>
+        <strong>${data.kecamatan?.nama || '-'}${data.desa?.nama ? ', ' + data.desa.nama : ''}${data.alamat_lokasi ? ' - ' + data.alamat_lokasi : ''}</strong>
+      </div>
+      <div>
+        <span class="meta-label" style="color:#64748b;font-size:0.85rem">Koordinat</span><br>
+        <strong>${data.lokasi_lat ? `${data.lokasi_lat.toFixed(4)}, ${data.lokasi_lng.toFixed(4)}` : '-'}</strong>
+      </div>
+      <div>
+        <span class="meta-label" style="color:#64748b;font-size:0.85rem">Status</span><br>
+        <span class="status-badge ${window.app.getStatusClass?.(data.status) || ''}" style="display:inline-block;padding:0.25rem 0.6rem;border-radius:999px;font-size:0.75rem;font-weight:600;background:${getStatusColor(data.status)};color:#fff">
+          ${window.app.formatStatus?.(data.status) || data.status || 'baru'}
+        </span>
+      </div>
+      <div>
+        <span class="meta-label" style="color:#64748b;font-size:0.85rem">Pelapor</span><br>
+        <strong>${data.profiles?.nama_lengkap || 'Unknown'}</strong>
+      </div>
+      <div>
+        <span class="meta-label" style="color:#64748b;font-size:0.85rem">Dibuat</span><br>
+        <strong>${tglDibuat}</strong>
+      </div>
+      <div>
+        <span class="meta-label" style="color:#64748b;font-size:0.85rem">Terakhir Update</span><br>
+        <strong>${tglUpdate}</strong>
+      </div>
+    </div>
+    
+    <div style="margin-bottom:1.5rem">
+      <strong style="display:block;margin-bottom:0.5rem">📝 Deskripsi:</strong>
+      <p class="meta-desc" style="margin:0;padding:0.75rem;background:#f8fafc;border-radius:8px;line-height:1.5;color:#1e293b">
+        ${data.deskripsi || '-'}
+      </p>
+    </div>
+    
+    ${data.foto_url ? `
+      <div>
+        <strong style="display:block;margin-bottom:0.5rem">🖼️ Bukti:</strong>
+        <a href="${data.foto_url}" target="_blank" class="btn-outline btn-sm" style="display:inline-block;padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;text-decoration:none;color:var(--primary);font-size:0.85rem">
+          📎 Lihat Bukti (Foto/Video)
+        </a>
+      </div>
+    ` : ''}
+  `;
+  
+  // Setup tombol update status (jika ada)
+  const updateSection = document.getElementById('modalUpdateSection');
+  if (updateSection) {
+    // Cek apakah user boleh edit
+    const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
+    const canEdit = user.role === 'admin_kesbangpol' || 
+                    (user.role === 'operator_kec' && data.kecamatan_id === user.kecamatan_id);
+    
+    if (canEdit) {
+      updateSection.classList.remove('d-none');
+      const updateReportId = document.getElementById('updateReportId');
+      const updateStatusSelect = document.getElementById('updateStatusSelect');
+      
+      if (updateReportId) updateReportId.value = data.id;
+      if (updateStatusSelect) updateStatusSelect.value = data.status;
+    } else {
+      updateSection.classList.add('d-none');
+    }
+  }
+  
+  // Tampilkan modal
+  modal.classList.remove('d-none');
+  console.log('✅ Modal displayed');
+}
+
+// Helper: Warna risiko
+function getRisikoColor(risiko) {
+  const colors = {
+    'Kritis': '#991b1b',
+    'Tinggi': '#dc2626',
+    'Sedang': '#eab308',
+    'Rendah': '#22c55e'
+  };
+  return colors[risiko] || '#eab308';
+}
+
+// Helper: Warna status
+function getStatusColor(status) {
+  const colors = {
+    'baru': '#dbeafe',
+    'diproses': '#fef3c7',
+    'selesai': '#dcfce7',
+    'ditutup': '#f1f5f9'
+  };
+  return colors[status] || '#f1f5f9';
+}
 
 window.showStatusModal = (id, currentStatus) => {
   document.getElementById('updateReportId').value = id;
