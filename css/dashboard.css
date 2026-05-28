@@ -16,6 +16,7 @@
   top: 0;
   height: 100vh;
   transition: transform 0.3s ease;
+  z-index: 100;
 }
 
 .sidebar-brand {
@@ -107,6 +108,7 @@
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--dark);
+  margin: 0;
 }
 
 .topbar-right {
@@ -269,7 +271,7 @@
 /* Charts Section */
 .charts-section {
   display: grid;
-  grid-template-columns: repeat(3, 1fr); /* 3 kolom di desktop */
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
   margin-top: 1.5rem;
 }
@@ -279,6 +281,8 @@
   padding: 1.25rem;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
 }
 
 .chart-box h3 {
@@ -289,8 +293,8 @@
 }
 
 .chart-box canvas {
-  width: 100% !important;
-  height: 250px !important;
+  width: 100%;
+  height: 250px;
 }
 
 .map-box #miniMap {
@@ -312,21 +316,26 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .section-header h3 {
   font-size: 1.1rem;
   font-weight: 600;
+  margin: 0;
 }
 
 .table-responsive {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  min-width: 800px; /* Ensure table doesn't squish */
 }
 
 .data-table th, .data-table td {
@@ -342,6 +351,7 @@
   text-transform: uppercase;
   font-size: 0.75rem;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .data-table tr:hover {
@@ -353,6 +363,7 @@
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .status-baru { background: #dbeafe; color: #1e40af; }
@@ -370,6 +381,7 @@
   font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .btn-action:hover {
@@ -378,17 +390,105 @@
   color: var(--primary);
 }
 
-/* Responsive */
-@media (max-width: 1024px) {
+/* ===== RESPONSIVE DESIGN (URUT: BESAR → KECIL) ===== */
+
+/* Large Desktop: 1200px+ */
+@media (max-width: 1200px) {
   .charts-section {
-    grid-template-columns: repeat(2, 1fr); /* 2 kolom di tablet */
-    gap: 1rem;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
+/* Tablet: 1024px */
+@media (max-width: 1024px) {
+  .chart-box canvas {
+    height: 220px;
+  }
+  
+  .map-box #miniMap {
+    height: 250px;
+  }
+}
+
+/* Mobile Landscape: 768px */
 @media (max-width: 768px) {
+  /* Sidebar menjadi overlay */
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  
+  /* Show mobile menu button */
+  .mobile-only {
+    display: inline-flex !important;
+  }
+  
+  /* Topbar adjustments */
+  .topbar {
+    padding: 0.75rem 1rem;
+  }
+  
+  .topbar-left h1 {
+    font-size: 1rem;
+  }
+  
+  .user-profile span {
+    display: none; /* Hide username on mobile */
+  }
+  
+  /* Content wrapper */
+  .content-wrapper {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  /* Filter form */
+  .filter-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .form-select,
+  .form-input,
+  .btn-primary {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  /* Stats grid */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .stat-card {
+    padding: 1rem;
+  }
+  
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.25rem;
+  }
+  
+  .stat-value {
+    font-size: 1.5rem;
+  }
+  
+  .stat-label {
+    font-size: 0.75rem;
+  }
+  
+  /* Charts - 1 column vertical */
   .charts-section {
-    grid-template-columns: 1fr; /* 1 kolom di mobile - VERTICAL */
+    grid-template-columns: 1fr;
     gap: 1rem;
   }
   
@@ -396,26 +496,81 @@
     padding: 1rem;
   }
   
-  .chart-box canvas {
-    height: 220px !important; /* Lebih kecil di mobile */
-  }
-  
-  .map-box #miniMap {
-    height: 220px; /* Lebih kecil di mobile */
-  }
-}
-
-@media (max-width: 480px) {
   .chart-box h3 {
-    font-size: 0.9rem; /* Judul lebih kecil */
+    font-size: 0.9rem;
   }
   
   .chart-box canvas {
-    height: 200px !important; /* Lebih kecil lagi */
+    height: 200px;
   }
   
   .map-box #miniMap {
     height: 200px;
+  }
+  
+  /* Table */
+  .table-section {
+    padding: 1rem;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Mobile Portrait: 480px */
+@media (max-width: 480px) {
+  .topbar-left h1 {
+    font-size: 0.9rem;
+  }
+  
+  .btn-icon {
+    padding: 0.4rem;
+    font-size: 1.1rem;
+  }
+  
+  /* Stats - 1 column */
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stat-card {
+    padding: 0.875rem;
+  }
+  
+  /* Charts */
+  .chart-box h3 {
+    font-size: 0.85rem;
+  }
+  
+  .chart-box canvas {
+    height: 180px;
+  }
+  
+  .map-box #miniMap {
+    height: 180px;
+  }
+  
+  /* Table - enable horizontal scroll */
+  .data-table {
+    font-size: 0.8rem;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 0.5rem;
+  }
+}
+
+/* Small Mobile: 360px */
+@media (max-width: 360px) {
+  .chart-box canvas {
+    height: 160px;
+  }
+  
+  .map-box #miniMap {
+    height: 160px;
   }
 }
 
@@ -427,13 +582,6 @@
 
 .alert-banner[style*="pulse"] {
   animation: pulse 2s infinite;
-}
-
-/* Responsive: 2 kolom di tablet */
-@media (max-width: 1200px) {
-  .charts-section {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 /* ===== MODAL STYLES ===== */
@@ -520,28 +668,12 @@
   .modal-content {
     max-width: 95%;
     margin: 1rem;
+    max-height: 90vh;
   }
   .modal-body {
     padding: 1rem;
   }
-}
-
-/* Responsive content wrapper */
-@media (max-width: 768px) {
-  .content-wrapper {
-    padding: 1rem;
-    gap: 1rem;
-  }
-  
-  .filter-form {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .form-select,
-  .form-input,
-  .btn-primary {
-    width: 100%;
-    min-width: auto;
+  .modal-header h3 {
+    font-size: 1rem;
   }
 }
