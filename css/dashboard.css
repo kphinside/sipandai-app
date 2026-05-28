@@ -269,42 +269,34 @@
 /* Charts Section */
 .charts-section {
   display: grid;
-  grid-template-columns: repeat(3, 1fr); /* ✅ 3 kolom fixed */
-  gap: 1.25rem;
-  align-items: start; /* ✅ Prevent stretching */
+  grid-template-columns: repeat(3, 1fr); /* 3 kolom di desktop */
+  gap: 1.5rem;
+  margin-top: 1.5rem;
 }
 
 .chart-box {
   background: #fff;
-  padding: 1rem;
+  padding: 1.25rem;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  max-height: 350px; /* ✅ Batasi tinggi maksimal */
-  overflow: hidden;
 }
 
 .chart-box h3 {
-  font-size: 0.95rem; /* ✅ Perkecil judul */
+  font-size: 1rem;
   font-weight: 600;
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 1rem 0;
   color: var(--dark);
-  line-height: 1.3;
 }
 
-/* Chart canvas container */
 .chart-box canvas {
-  max-height: 250px; /* ✅ Batasi tinggi canvas */
-  flex: 1;
+  width: 100% !important;
+  height: 250px !important;
 }
 
-/* Map box specific */
 .map-box #miniMap {
-  height: 220px; /* ✅ Tinggi map lebih kecil */
+  height: 280px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  background: #f8fafc;
 }
 
 /* Table Section */
@@ -389,35 +381,37 @@
 /* Responsive */
 @media (max-width: 1024px) {
   .charts-section {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr); /* 2 kolom di tablet */
+    gap: 1rem;
   }
 }
 
 @media (max-width: 768px) {
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    transform: translateX(-100%);
-    z-index: 100;
-    box-shadow: 4px 0 10px rgba(0,0,0,0.1);
-  }
-  .sidebar.open { transform: translateX(0); }
-  .mobile-only { display: inline-flex; }
-  .topbar-left h1 { font-size: 1rem; }
-  .filter-form { flex-direction: column; }
-  .form-select, .form-input, .btn-primary { width: 100%; }
-  .stats-grid { grid-template-columns: 1fr; }
   .charts-section {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* 1 kolom di mobile - VERTICAL */
+    gap: 1rem;
   }
   
   .chart-box {
-    max-height: 300px;
+    padding: 1rem;
   }
   
   .chart-box canvas {
-    max-height: 200px;
+    height: 220px !important; /* Lebih kecil di mobile */
+  }
+  
+  .map-box #miniMap {
+    height: 220px; /* Lebih kecil di mobile */
+  }
+}
+
+@media (max-width: 480px) {
+  .chart-box h3 {
+    font-size: 0.9rem; /* Judul lebih kecil */
+  }
+  
+  .chart-box canvas {
+    height: 200px !important; /* Lebih kecil lagi */
   }
   
   .map-box #miniMap {
