@@ -525,3 +525,23 @@
     padding: 1rem;
   }
 }
+
+/* Responsive content wrapper */
+@media (max-width: 768px) {
+  .content-wrapper {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  .filter-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .form-select,
+  .form-input,
+  .btn-primary {
+    width: 100%;
+    min-width: auto;
+  }
+}
