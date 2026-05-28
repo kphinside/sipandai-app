@@ -547,6 +547,216 @@ function setupModal() {
     }
   });
 }
+// ==========================================
+// 🖨️ PRINT TO PDF FUNCTIONALITY
+// ==========================================
+function setupPrintButton() {
+  const printBtn = document.getElementById('printBtn');
+  if (!printBtn) return;
+  
+  printBtn.addEventListener('click', () => {
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle')?.textContent || 'Detail Laporan';
+    
+    if (!modalBody) {
+      console.error('Modal body not found');
+      return;
+    }
+    
+    // Ambil data dari modal
+    const content = modalBody.innerHTML;
+    
+    // Buat window print baru
+    const printWindow = window.open('', '_blank');
+    
+    // Template HTML untuk print
+    const printHTML = `
+      <!DOCTYPE html>
+      <html lang="id">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${modalTitle}</title>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 40px;
+            background: #fff;
+            color: #1e293b;
+            line-height: 1.6;
+          }
+          
+          .print-header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #1e40af;
+          }
+          
+          .print-header h1 {
+            font-size: 24px;
+            color: #1e40af;
+            margin-bottom: 8px;
+          }
+          
+          .print-header p {
+            color: #64748b;
+            font-size: 14px;
+          }
+          
+          .print-content {
+            max-width: 800px;
+            margin: 0 auto;
+          }
+          
+          .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+          }
+          
+          .detail-item {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #1e40af;
+          }
+          
+          .detail-label {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 5px;
+          }
+          
+          .detail-value {
+            font-size: 14px;
+            color: #1e293b;
+            font-weight: 600;
+          }
+          
+          .section {
+            margin-bottom: 25px;
+          }
+          
+          .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #e2e8f0;
+          }
+          
+          .section-content {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            line-height: 1.8;
+          }
+          
+          .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          
+          .badge-blue { background: #dbeafe; color: #1e40af; }
+          .badge-yellow { background: #fef3c7; color: #b45309; }
+          .badge-green { background: #dcfce7; color: #166534; }
+          .badge-red { background: #fee2e2; color: #b91c1c; }
+          
+          .print-footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #e2e8f0;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+          }
+          
+          @media print {
+            body {
+              padding: 20px;
+            }
+            
+            .print-header {
+              margin-bottom: 30px;
+            }
+            
+            .detail-grid {
+              grid-template-columns: 1fr 1fr;
+            }
+            
+            @page {
+              margin: 2cm;
+              size: A4;
+            }
+          }
+          
+          @media (max-width: 640px) {
+            .detail-grid {
+              grid-template-columns: 1fr;
+            }
+            
+            body {
+              padding: 20px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-header">
+          <h1>SIPANDAI - Kabupaten Kepahiang</h1>
+          <p>Sistem Informasi Pemantauan dan Deteksi Dini Konflik Sosial</p>
+        </div>
+        
+        <div class="print-content">
+          <h2 style="margin-bottom: 30px; text-align: center;">${modalTitle}</h2>
+          
+          ${content}
+        </div>
+        
+        <div class="print-footer">
+          <p>Dokumen ini dicetak secara otomatis dari sistem SIPANDAI</p>
+          <p>Dicetak pada: ${new Date().toLocaleString('id-ID', { 
+            day: '2-digit', 
+            month: 'long', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}</p>
+          <p>Badan Kesatuan Bangsa dan Politik Kabupaten Kepahiang</p>
+        </div>
+        
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printHTML);
+    printWindow.document.close();
+  });
+}
+
+// Panggil fungsi ini saat DOM loaded
+document.addEventListener('DOMContentLoaded', () => {
+  setupPrintButton();
+});
 
 // Global: Buka modal detail
 window.openReportModal = async (id) => {
