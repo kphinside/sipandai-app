@@ -45,19 +45,32 @@
   <main class="main-content">
     
     <!-- Topbar -->
-    <header class="topbar">
-      <div class="topbar-left">
-        <button id="toggleSidebar" class="btn-icon mobile-only">☰</button>
-        <h1>Dashboard Monitoring Kewaspadaan Nasional</h1>
+<header class="topbar">
+  <div class="topbar-left">
+    <button id="toggleSidebar" class="btn-icon mobile-only">☰</button>
+    <h1>Dashboard Monitoring Kewaspadaan Nasional</h1>
+  </div>
+  <div class="topbar-right">
+    <!-- 🔔 Notification Bell - DI TOPBAR -->
+    <button id="notificationBell" class="btn-icon" title="Notifikasi" style="position:relative">
+      🔔
+      <span id="notificationBadge" class="notification-badge" style="display:none;position:absolute;top:0;right:0;background:#dc2626;color:#fff;font-size:0.65rem;padding:0.1rem 0.35rem;border-radius:999px;font-weight:600;min-width:18px;height:18px;align-items:center;justify-content:center">0</span>
+    </button>
+    
+    <!-- Dropdown notifikasi -->
+    <div id="notificationDropdown" class="notification-dropdown" style="display:none;position:absolute;top:60px;right:20px;width:350px;background:#fff;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);max-height:400px;overflow-y:auto;z-index:1000">
+      <div class="notification-empty" style="padding:2rem;text-align:center;color:var(--gray)">
+        <p>🔔 Memuat notifikasi...</p>
       </div>
-      <div class="topbar-right">
-        <button class="btn-icon" title="Notifikasi">🔔 <span class="badge">3</span></button>
-        <div class="user-profile">
-          <img src="assets/icons/avatar.png" alt="Avatar" class="avatar" id="globalAvatar">
-          <span id="userName">Operator Kesbangpol</span>
-        </div>
-      </div>
-    </header>
+    </div>
+    
+    <!-- User Profile -->
+    <div class="user-profile">
+      <img src="assets/icons/avatar.png" alt="Avatar" class="avatar" id="globalAvatar">
+      <span id="userName">Operator Kesbangpol</span>
+    </div>
+  </div>
+</header>
 
     <div class="content-wrapper">
 
@@ -86,49 +99,36 @@
       </section>
 
       <!-- Stats Cards -->
-      <section class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon">📋</div>
-          <div class="stat-info">
-            <span class="stat-value" id="statTotal">0</span>
-            <span class="stat-label">Total Laporan</span>
-          </div>
-        </div>
-        <div class="stat-card warning">
-          <div class="stat-icon">⏳</div>
-          <div class="stat-info">
-            <span class="stat-value" id="statProses">0</span>
-            <span class="stat-label">Sedang Diproses</span>
-          </div>
-        </div>
-        <div class="stat-card success">
-          <div class="stat-icon">✅</div>
-          <div class="stat-info">
-            <span class="stat-value" id="statSelesai">0</span>
-            <span class="stat-label">Selesai Ditindak</span>
-          </div>
-        </div>
-<div class="topbar-right">
-  <!-- 🔔 Notification Bell -->
-<button id="notificationBell" class="btn-icon" title="Notifikasi" style="position:relative">
-  🔔
-  <span id="notificationBadge" class="notification-badge" style="display:none;position:absolute;top:0;right:0;background:#dc2626;color:#fff;font-size:0.65rem;padding:0.1rem 0.35rem;border-radius:999px;font-weight:600;min-width:18px;height:18px;align-items:center;justify-content:center">0</span>
-</button>
-
-<!-- Dropdown notifikasi -->
-<div id="notificationDropdown" class="notification-dropdown" style="display:none;position:absolute;top:60px;right:20px;width:350px;background:#fff;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);max-height:400px;overflow-y:auto;z-index:1000">
-  <div class="notification-empty" style="padding:2rem;text-align:center;color:var(--gray)">
-    <p>🔔 Memuat notifikasi...</p>
-  </div>
-</div>
-   
-  <!-- User Profile -->
-  <div class="user-profile">
-    <img src="assets/icons/avatar.png" alt="Avatar" class="avatar" id="globalAvatar">
-    <span id="userName">Operator Kesbangpol</span>
-  </div>
-</div>
-      </section>
+  <section class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">📋</div>
+      <div class="stat-info">
+        <span class="stat-value" id="statTotal">0</span>
+        <span class="stat-label">Total Laporan</span>
+      </div>
+    </div>
+    <div class="stat-card warning">
+      <div class="stat-icon">⏳</div>
+      <div class="stat-info">
+        <span class="stat-value" id="statProses">0</span>
+        <span class="stat-label">Sedang Diproses</span>
+      </div>
+    </div>
+    <div class="stat-card success">
+      <div class="stat-icon">✅</div>
+      <div class="stat-info">
+        <span class="stat-value" id="statSelesai">0</span>
+        <span class="stat-label">Selesai Ditindak</span>
+      </div>
+    </div>
+    <div class="stat-card danger">
+      <div class="stat-icon">🚨</div>
+      <div class="stat-info">
+        <span class="stat-value" id="statMerah">0</span>
+        <span class="stat-label">Zona Merah (Kritis)</span>
+      </div>
+    </div>
+  </section>
 
       <!-- Charts & Mini Map -->
 <!-- Charts & Mini Map -->
@@ -138,6 +138,7 @@
       <h3>📈 Tren Laporan (30 Hari)</h3>
       <canvas id="chartTren"></canvas>
     </div>
+    <div>
     <div class="chart-box">
       <h3>📊 Distribusi Kategori</h3>
       <canvas id="chartKategori"></canvas>
