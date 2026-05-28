@@ -274,6 +274,7 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
   margin-top: 1.5rem;
+  align-items: start;
 }
 
 .chart-box {
@@ -283,6 +284,7 @@
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
+  height: fit-content;
 }
 
 .chart-box h3 {
@@ -294,7 +296,8 @@
 
 .chart-box canvas {
   width: 100%;
-  height: 250px;
+  height: 250px !important;
+  max-height: 250px;
 }
 
 .map-box #miniMap {
