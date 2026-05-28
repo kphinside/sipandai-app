@@ -110,16 +110,18 @@
         </div>
 <div class="topbar-right">
   <!-- 🔔 Notification Bell -->
-  <button id="notificationBell" class="btn-icon" title="Notifikasi" style="position:relative">
-    🔔
-    <span class="notification-badge" style="display:none;position:absolute;top:0;right:0;background:#dc2626;color:#fff;font-size:0.65rem;padding:0.1rem 0.35rem;border-radius:999px;font-weight:600;min-width:18px;height:18px;align-items:center;justify-content:center">3</span>
-  </button>
-  
-  <!-- Notification Dropdown -->
-  <div id="notificationDropdown" class="notification-dropdown" style="display:none;position:absolute;top:60px;right:20px;width:350px;background:#fff;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);max-height:400px;overflow-y:auto;z-index:1000">
-    <!-- Diisi via JS -->
+<button id="notificationBell" class="btn-icon" title="Notifikasi" style="position:relative">
+  🔔
+  <span id="notificationBadge" class="notification-badge" style="display:none;position:absolute;top:0;right:0;background:#dc2626;color:#fff;font-size:0.65rem;padding:0.1rem 0.35rem;border-radius:999px;font-weight:600;min-width:18px;height:18px;align-items:center;justify-content:center">0</span>
+</button>
+
+<!-- Dropdown notifikasi -->
+<div id="notificationDropdown" class="notification-dropdown" style="display:none;position:absolute;top:60px;right:20px;width:350px;background:#fff;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);max-height:400px;overflow-y:auto;z-index:1000">
+  <div class="notification-empty" style="padding:2rem;text-align:center;color:var(--gray)">
+    <p>🔔 Memuat notifikasi...</p>
   </div>
-  
+</div>
+   
   <!-- User Profile -->
   <div class="user-profile">
     <img src="assets/icons/avatar.png" alt="Avatar" class="avatar" id="globalAvatar">
@@ -182,6 +184,7 @@
   <script src="js/config.js"></script>
   <script src="js/app.js"></script>
   <script src="js/dashboard.js"></script>
+  <script src="js/notifications.js"></script>
 <!-- Modal Detail Laporan (untuk dashboard) -->
 <div id="modalLaporanDetail" class="modal-overlay d-none">
   <div class="modal-content" style="max-width: 600px;">
