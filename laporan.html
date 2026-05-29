@@ -152,14 +152,96 @@
       </section>
 
       <!-- Section: Daftar Laporan -->
-      <section class="card list-section">
-        <div class="card-header">
-          <h2>📋 Daftar Laporan Masuk</h2>
-          <div class="header-actions">
-            <button class="btn-outline" id="btnExport">📥 Export Excel</button>
-            <button class="btn-icon" title="Refresh">🔄</button>
-          </div>
-        </div>
+<!-- Section: Daftar Laporan & Validasi (TABBED) -->
+<section class="card list-section">
+  <div class="card-header">
+    <h2> Manajemen Laporan</h2>
+    <div class="header-actions">
+      <button class="btn-outline" id="btnExport">📥 Export Excel</button>
+      <button class="btn-icon" title="Refresh">🔄</button>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tab-nav" style="display:flex; gap:0.5rem; border-bottom:1px solid var(--border); padding: 0 1.25rem 0.5rem;">
+    <button class="tab-btn active" data-tab="laporan-masuk">📥 Laporan Masuk</button>
+    <button class="tab-btn" data-tab="validasi-publik"> Menunggu Validasi</button>
+  </div>
+
+  <!-- Tab 1: Laporan Masuk (Existing) -->
+  <div id="tab-laporan-masuk" class="tab-content">
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <select id="filterKecamatanList" class="form-select">
+        <option value="">Semua Kecamatan</option>
+      </select>
+      <select id="filterStatusList" class="form-select">
+        <option value="">Semua Status</option>
+        <option value="baru">Baru</option>
+        <option value="diproses">Diproses</option>
+        <option value="selesai">Selesai</option>
+      </select>
+      <select id="filterRisikoList" class="form-select">
+        <option value="">Semua Risiko</option>
+        <option value="Rendah">Rendah</option>
+        <option value="Sedang">Sedang</option>
+        <option value="Tinggi">Tinggi</option>
+        <option value="Kritis">Kritis</option>
+      </select>
+      <input type="text" id="searchLaporan" class="form-input" placeholder="🔍 Cari judul/desa...">
+    </div>
+
+    <!-- Table -->
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th width="5%">No</th>
+            <th width="12%">Tanggal</th>
+            <th width="20%">Lokasi</th>
+            <th width="12%">Kategori</th>
+            <th width="10%">Risiko</th>
+            <th width="10%">Status</th>
+            <th width="15%">Pelapor</th>
+            <th width="16%">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tableLaporan">
+          <tr><td colspan="8" class="text-center text-muted">Memuat data laporan...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <button class="page-btn" disabled>← Sebelumnya</button>
+      <span class="page-info">Halaman 1 dari 5</span>
+      <button class="page-btn">Selanjutnya →</button>
+    </div>
+  </div>
+
+  <!-- Tab 2: Validasi Laporan Publik (BARU) -->
+  <div id="tab-validasi-publik" class="tab-content d-none">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Referensi</th>
+            <th>Tanggal</th>
+            <th>Lokasi</th>
+            <th>Judul</th>
+            <th>Kategori</th>
+            <th>Kontak</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="pendingValidationTable">
+          <tr><td colspan="7" class="text-center">Memuat...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
 
         <!-- Filter Bar -->
         <div class="filter-bar">
