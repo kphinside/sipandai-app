@@ -680,3 +680,27 @@
     font-size: 1rem;
   }
 }
+/* Mini Map di Dashboard */
+.map-box #miniMap {
+  height: 280px;        /* ✅ Tinggi fixed */
+  min-height: 280px;    /* ✅ Mencegah collapse */
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  width: 100%;
+}
+
+/* Responsive mobile */
+@media (max-width: 768px) {
+  .map-box #miniMap {
+    height: 220px;
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 480px) {
+  .map-box #miniMap {
+    height: 200px;
+    min-height: 200px;
+  }
+}
