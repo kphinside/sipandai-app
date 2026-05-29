@@ -1051,3 +1051,134 @@ function setupRealtimeSubscription() {
     })
     .subscribe();
 }
+
+// ==========================================
+// 👥 VALIDASI LAPORAN PUBLIK (Admin Only)
+// ==========================================
+
+async function fetchPendingValidation() {
+  try {
+    const { data, error } = await window.sbClient
+      .from('conflict_reports')
+      .select(`
+        id, judul, kategori, alamat_lokasi, desa, 
+        contact_info, created_at, kecamatan (nama)
+      `)
+      .eq('is_public', true)
+      .eq('status', 'pending_validation')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    renderPendingValidation(data || []);
+    document.getElementById('pendingCount').textContent = data?.length || 0;
+    
+    return data;
+  } catch (err) {
+    console.error('Gagal fetch pending validation:', err);
+    return [];
+  }
+}
+
+function renderPendingValidation(data) {
+  const tbody = document.getElementById('pendingValidationTable');
+  if (!tbody) return;
+  
+  tbody.innerHTML = '';
+  
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Tidak ada laporan menunggu validasi.</td></tr>';
+    return;
+  }
+  
+  data.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>REF-${item.id}</strong></td>
+      <td>${window.app.formatDate(item.created_at)}</td>
+      <td>${item.kecamatan?.nama || '-'}, ${item.desa || '-'}</td>
+      <td>${item.judul}</td>
+      <td>${item.kategori || 'Lainnya'}</td>
+      <td>${item.contact_info ? '📞 Ada' : '-'}</td>
+      <td style="display:flex;gap:0.25rem">
+        <button class="btn-action" style="background:#dcfce7;color:#166534" onclick="validatePublicReport(${item.id}, 'approve')">✅ Setuju</button>
+        <button class="btn-action" style="background:#fee2e2;color:#b91c1c" onclick="validatePublicReport(${item.id}, 'reject')">❌ Tolak</button>
+        <button class="btn-action" onclick="viewPublicReportDetail(${item.id})">👁️ Detail</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Global function: Validasi laporan publik
+window.validatePublicReport = async (id, action) => {
+  if (!confirm(action === 'approve' 
+    ? '✅ Setujui laporan ini dan ubah status menjadi "baru"?' 
+    : '❌ Tolak laporan ini?')) return;
+  
+  try {
+    const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
+    
+    const updatePayload = {
+      status: action === 'approve' ? 'baru' : 'ditolak',
+      validated_at: new Date().toISOString(),
+      validated_by: user.id,
+      validation_notes: action === 'reject' ? prompt('Alasan penolakan (opsional):') : null,
+      updated_at: new Date().toISOString()
+    };
+    
+    const { error } = await window.sbClient
+      .from('conflict_reports')
+      .update(updatePayload)
+      .eq('id', id);
+    
+    if (error) throw error;
+    
+    window.app.showToast(
+      action === 'approve' ? '✅ Laporan disetujui & masuk sistem' : '❌ Laporan ditolak',
+      action === 'approve' ? 'success' : 'warning'
+    );
+    
+    // Refresh tables
+    await fetchPendingValidation();
+    await fetchReports(); // Refresh main table
+    
+  } catch (err) {
+    console.error('Gagal validasi:', err);
+    window.app.showToast('Gagal: ' + err.message, 'error');
+  }
+};
+
+// Global function: Lihat detail laporan publik
+window.viewPublicReportDetail = async (id) => {
+  const { data, error } = await window.sbClient
+    .from('conflict_reports')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) {
+    window.app.showToast('Gagal memuat detail', 'error');
+    return;
+  }
+  
+  // Tampilkan modal sederhana (bisa pakai modal existing atau alert)
+  alert(`📄 Detail Laporan #${id}\n\nJudul: ${data.judul}\nLokasi: ${data.alamat_lokasi}\nDeskripsi: ${data.deskripsi}\nKontak: ${data.contact_info || '-'}`);
+};
+
+// Tab switching logic
+document.querySelectorAll('.tab-btn')?.forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('d-none'));
+    
+    e.currentTarget.classList.add('active');
+    const tabId = e.currentTarget.dataset.tab;
+    document.getElementById(`tab-${tabId}`).classList.remove('d-none');
+    
+    // Load data if needed
+    if (tabId === 'validasi-publik') {
+      fetchPendingValidation();
+    }
+  });
+});
