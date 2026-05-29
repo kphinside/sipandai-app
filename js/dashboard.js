@@ -1,19 +1,23 @@
 /**
  * js/dashboard.js
- * Logic Dashboard: Stats, Charts, Recent Table, Filters & Early Warning
- * ✅ Chart.js v3 Compatible ✅ Safe Destroy ✅ Error Handling Robust
+ * Logic Dashboard: Stats, Charts, Recent Table, Filters, Early Warning & Mini Map
+ * ✅ Chart.js v3 Compatible ✅ Safe Destroy ✅ Error Handling Robust ✅ Mini Map All Risks
  */
 
 // State global
 let dashboardData = [];
 let currentFilters = {};
-const DEBUG = true;
+const DEBUG = false; // Set true untuk debug, false untuk production
 
 // Store chart instances properly
 let chartInstances = {
   tren: null,
   kategori: null
 };
+
+// Store mini map instance
+let miniMapInstance = null;
+let miniMapMarkersGroup = null;
 
 // ==========================================
 // 1. INIT & FETCH DATA
@@ -24,13 +28,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Pastikan Chart.js loaded
   if (typeof Chart === 'undefined') {
     console.error('❌ Chart.js not loaded!');
-    window.app.showToast('Gagal memuat library grafik', 'error');
+    window.app?.showToast?.('Gagal memuat library grafik', 'error');
     return;
   }
   
   await initDashboard();
   setupFilters();
   await loadKecamatanFilter();
+  setupDashboardModal();
 });
 
 async function initDashboard() {
@@ -45,11 +50,13 @@ async function initDashboard() {
     await initCharts(dashboardData);
     renderRecentTable(dashboardData);
     updateEarlyWarning(dashboardData);
+    
+    // ✅ Init mini map SETELAH data siap
     initMiniMap();
     
   } catch (err) {
     console.error('❌ Dashboard init error:', err);
-    window.app.showToast('Gagal memuat dashboard: ' + err.message, 'error');
+    window.app?.showToast?.('Gagal memuat dashboard: ' + err.message, 'error');
   }
 }
 
@@ -58,7 +65,7 @@ async function fetchDashboardData(filters = {}) {
     currentFilters = { ...filters };
     const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
     
-    // ✅ QUERY FIX: Jangan join 'desa' jika relasi belum ada
+    // ✅ QUERY: Ambil data yang diperlukan untuk dashboard
     let query = window.sbClient
       .from('conflict_reports')
       .select(`
@@ -77,11 +84,12 @@ async function fetchDashboardData(filters = {}) {
     if (filters.date_from) query = query.gte('created_at', filters.date_from);
     if (filters.date_to) query = query.lte('created_at', filters.date_to);
     
-    // RLS filter for operator
+    // RLS filter for operator kecamatan
     if (user.role === 'operator_kec' && user.kecamatan_id) {
       query = query.eq('kecamatan_id', user.kecamatan_id);
     }
     
+    // Limit 5 untuk recent table
     query = query.limit(5);
     
     const { data, error, count } = await query;
@@ -91,14 +99,13 @@ async function fetchDashboardData(filters = {}) {
       throw new Error(`Database error: ${error.message}`);
     }
     
-    // ✅ Format data: ambil desa dari alamat_lokasi jika desa join tidak ada
+    // ✅ Format data: fallback ke alamat_lokasi jika desa join tidak ada
     dashboardData = (data || []).map(d => ({
       id: d.id,
       tgl: d.created_at,
       judul: d.judul,
       kec: d.kecamatan?.nama || '-',
-      // Coba ambil dari desa join, fallback ke alamat_lokasi
-      desa: d.desa?.nama || (d.alamat_lokasi ? d.alamat_lokasi.split(',')[0].trim() : '-'),
+      desa: d.alamat_lokasi ? d.alamat_lokasi.split(',')[0].trim() : '-',
       kat: d.kategori || 'Lainnya',
       risiko: d.tingkat_risiko || 'Sedang',
       status: d.status,
@@ -106,12 +113,13 @@ async function fetchDashboardData(filters = {}) {
       _raw: d
     }));
     
+    if (DEBUG) console.log(`✅ Fetched ${dashboardData.length} records`);
     return dashboardData;
     
   } catch (err) {
     console.error('❌ fetchDashboardData error:', err);
     
-    // Fallback: simple query tanpa join apapun
+    // Fallback: simple query tanpa join jika gagal
     try {
       const { data: fallbackData } = await window.sbClient
         .from('conflict_reports')
@@ -184,8 +192,6 @@ function animateValue(id, start, end, duration) {
 // ==========================================
 // 📈 CHARTS - Chart.js v3 Compatible
 // ==========================================
-
-// ✅ Helper: Safe destroy chart instance (Chart.js v3+)
 function safeDestroyChart(chartKey) {
   try {
     const chart = chartInstances[chartKey];
@@ -209,7 +215,6 @@ async function initTrenChart() {
   if (!ctx) return;
   
   try {
-    // Destroy existing chart safely
     safeDestroyChart('tren');
     
     // Fetch trend data (30 days)
@@ -235,7 +240,6 @@ async function initTrenChart() {
       if (dateMap[key] !== undefined) dateMap[key]++;
     });
     
-    // Create new chart (Chart.js v3+ syntax)
     chartInstances.tren = new Chart(ctx, {
       type: 'line',
       data: {
@@ -254,10 +258,7 @@ async function initTrenChart() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { 
-          legend: { display: false },
-          tooltip: { enabled: true }
-        },
+        plugins: { legend: { display: false }, tooltip: { enabled: true } },
         scales: {
           y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.05)' } },
           x: { grid: { display: false } }
@@ -340,14 +341,14 @@ function renderRecentTable(data) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><strong>#${item.id}</strong></td>
-      <td>${window.app.formatDate(item.tgl)}</td>
+      <td>${window.app?.formatDate?.(item.tgl) || item.tgl}</td>
       <td>
         <strong>${item.kec}</strong><br>
         <small class="text-muted">${item.desa}</small>
       </td>
       <td>${item.kat}</td>
-      <td><span class="risiko-badge ${window.app.getRisikoClass(item.risiko)}">${window.app.formatRisiko(item.risiko)}</span></td>
-      <td><span class="status-badge ${window.app.getStatusClass(item.status)}">${window.app.formatStatus(item.status)}</span></td>
+      <td><span class="risiko-badge ${window.app?.getRisikoClass?.(item.risiko) || ''}">${window.app?.formatRisiko?.(item.risiko) || item.risiko}</span></td>
+      <td><span class="status-badge ${window.app?.getStatusClass?.(item.status) || ''}">${window.app?.formatStatus?.(item.status) || item.status}</span></td>
       <td><button class="btn-action" onclick="viewReportDetail(${item.id})">👁️ Detail</button></td>
     `;
     tbody.appendChild(tr);
@@ -359,21 +360,14 @@ function renderRecentTable(data) {
 // ==========================================
 window.viewReportDetail = async (id) => {
   try {
-    // Fetch detail lengkap dari Supabase
     const { data, error } = await window.sbClient
       .from('conflict_reports')
-      .select(`
-        *, 
-        kecamatan (nama), 
-        desa (nama),
-        profiles (nama_lengkap)
-      `)
+      .select(`*, kecamatan (nama)`)
       .eq('id', id)
       .single();
     
     if (error) throw error;
     
-    // Isi modal
     const modal = document.getElementById('modalLaporanDetail');
     const modalTitle = document.getElementById('modalLaporanTitle');
     const modalBody = document.getElementById('modalLaporanBody');
@@ -388,13 +382,13 @@ window.viewReportDetail = async (id) => {
     
     modalBody.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem">
-        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Tanggal</span><br><strong>${window.app.formatDate(data.created_at)}</strong></div>
-        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Status</span><br><strong>${window.app.formatStatus(data.status)}</strong></div>
+        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Tanggal</span><br><strong>${window.app?.formatDate?.(data.created_at) || data.created_at}</strong></div>
+        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Status</span><br><strong>${window.app?.formatStatus?.(data.status) || data.status}</strong></div>
         <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Kategori</span><br><strong>${data.kategori || 'Lainnya'}</strong></div>
-        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Risiko</span><br><strong style="color:${window.app.getRisikoColor?.(data.tingkat_risiko) || '#eab308'}">${window.app.formatRisiko?.(data.tingkat_risiko) || data.tingkat_risiko}</strong></div>
-        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Lokasi</span><br><strong>${data.kecamatan?.nama || '-'}, ${data.desa?.nama || data.alamat_lokasi || '-'}</strong></div>
+        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Risiko</span><br><strong style="color:${getRisikoColor(data.tingkat_risiko)}">${window.app?.formatRisiko?.(data.tingkat_risiko) || data.tingkat_risiko}</strong></div>
+        <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Lokasi</span><br><strong>${data.kecamatan?.nama || '-'}, ${data.alamat_lokasi || '-'}</strong></div>
         <div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Pelapor</span><br><strong>${data.profiles?.nama_lengkap || 'Anonim'}</strong></div>
-        ${data.lokasi_lat ? `<div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Koordinat</span><br><strong>${data.lokasi_lat.toFixed(4)}, ${data.lokasi_lng.toFixed(4)}</strong></div>` : ''}
+        ${data.lokasi_lat ? `<div><span class="meta-label" style="color:#64748b;font-size:0.85rem">Koordinat</span><br><strong>${parseFloat(data.lokasi_lat).toFixed(4)}, ${parseFloat(data.lokasi_lng).toFixed(4)}</strong></div>` : ''}
       </div>
       
       <div style="margin-bottom:1rem">
@@ -414,7 +408,6 @@ window.viewReportDetail = async (id) => {
       ` : ''}
     `;
     
-    // Setup tombol "Lihat Lengkap"
     const btnLihatLengkap = document.getElementById('btnLihatLengkap');
     if (btnLihatLengkap) {
       btnLihatLengkap.onclick = () => {
@@ -423,16 +416,20 @@ window.viewReportDetail = async (id) => {
       };
     }
     
-    // Tampilkan modal
     modal.classList.remove('d-none');
     
   } catch (err) {
     console.error('Gagal load detail:', err);
-    window.app.showToast('Gagal memuat detail laporan', 'error');
-    // Fallback: redirect
+    window.app?.showToast?.('Gagal memuat detail laporan', 'error');
     window.location.href = `laporan.html?report_id=${id}`;
   }
 };
+
+// Helper: Warna risiko untuk modal
+function getRisikoColor(risiko) {
+  const colors = { 'Kritis': '#991b1b', 'Tinggi': '#dc2626', 'Sedang': '#eab308', 'Rendah': '#22c55e' };
+  return colors[risiko] || '#eab308';
+}
 
 // ==========================================
 // 🚨 EARLY WARNING
@@ -465,8 +462,6 @@ async function loadKecamatanFilter() {
     return;
   }
   
-  if (DEBUG) console.log('🔄 Loading kecamatan for filter dropdown...');
-  
   try {
     const { data, error } = await window.sbClient
       .from('kecamatan')
@@ -474,8 +469,6 @@ async function loadKecamatanFilter() {
       .order('nama');
     
     if (error) throw error;
-    
-    if (DEBUG) console.log(`✅ Loaded ${data?.length || 0} kecamatan`);
     
     select.innerHTML = '<option value="">Semua Kecamatan</option>';
     
@@ -488,7 +481,8 @@ async function loadKecamatanFilter() {
       });
     } else {
       // Fallback hardcoded
-      select.innerHTML += `
+      select.innerHTML = `
+        <option value="">Semua Kecamatan</option>
         <option value="8">Kepahiang</option><option value="9">Tebat Karai</option>
         <option value="10">Merigi</option><option value="11">Kabawetan</option>
         <option value="12">Muara Kemumu</option><option value="13">Bermani Ilir</option>
@@ -498,7 +492,6 @@ async function loadKecamatanFilter() {
     
   } catch (err) {
     console.error('❌ loadKecamatanFilter error:', err);
-    // Fallback hardcoded
     select.innerHTML = `
       <option value="">Semua Kecamatan</option>
       <option value="8">Kepahiang</option><option value="9">Tebat Karai</option>
@@ -533,52 +526,130 @@ function setupFilters() {
       renderRecentTable(dashboardData);
       updateEarlyWarning(dashboardData);
       
-      window.app.showToast('🔍 Filter diterapkan', 'info');
+      // ✅ Update mini map markers setelah filter diterapkan
+      updateMiniMapMarkers();
+      
+      window.app?.showToast?.('🔍 Filter diterapkan', 'info');
     } catch (err) {
       console.error('Filter apply error:', err);
-      window.app.showToast('Gagal terapkan filter', 'error');
+      window.app?.showToast?.('Gagal terapkan filter', 'error');
     }
   });
 }
 
 // ==========================================
-// 🗺️ MINI MAP
+// 🗺️ MINI MAP - TAMPILKAN SEMUA RISIKO
 // ==========================================
 function initMiniMap() {
   const mapContainer = document.getElementById('miniMap');
-  if (!mapContainer || typeof L === 'undefined') return;
+  if (!mapContainer || typeof L === 'undefined') {
+    console.warn('⚠️ Mini map container or Leaflet not available');
+    return;
+  }
+  
+  // ✅ Destroy instance lama jika ada
+  if (miniMapInstance) {
+    try {
+      miniMapInstance.remove();
+      miniMapInstance = null;
+      if (miniMapMarkersGroup) miniMapMarkersGroup = null;
+      console.log('🗑️ Old miniMap instance destroyed');
+    } catch (e) {
+      console.warn('⚠️ Could not destroy old miniMap:', e);
+    }
+  }
   
   try {
-    const miniMap = L.map('miniMap', {
-      center: [-3.648, 102.626],
+    // ✅ Inisialisasi peta mini
+    miniMapInstance = L.map('miniMap', {
+      center: [-3.648, 102.626], // Center Kepahiang
       zoom: 10,
       zoomControl: false,
       scrollWheelZoom: false,
-      dragging: false
+      dragging: false,
+      attributionControl: false
     });
     
+    // Base layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap'
-    }).addTo(miniMap);
+      attribution: '© OpenStreetMap',
+      maxZoom: 15
+    }).addTo(miniMapInstance);
     
-    const critical = dashboardData?.filter(d => d.risiko === 'Kritis').slice(0, 3) || [];
-    critical.forEach(d => {
-      if (d._raw?.lokasi_lat && d._raw?.lokasi_lng) {
-        L.circleMarker([d._raw.lokasi_lat, d._raw.lokasi_lng], {
-          radius: 6,
-          fillColor: '#991b1b',
-          color: '#fff',
-          weight: 2,
-          fillOpacity: 0.9
-        }).addTo(miniMap).bindPopup(`<strong>${d.judul}</strong><br>${d.kec}`);
+    // ✅ Tambahkan marker untuk SEMUA risiko
+    updateMiniMapMarkers();
+    
+    console.log('✅ Mini map initialized');
+    
+  } catch (err) {
+    console.error('❌ Failed to init miniMap:', err);
+  }
+}
+
+// ✅ Fungsi update marker - TAMPILKAN SEMUA RISIKO
+function updateMiniMapMarkers() {
+  if (!miniMapInstance) return;
+  
+  // Clear group lama
+  if (miniMapMarkersGroup) {
+    miniMapInstance.removeLayer(miniMapMarkersGroup);
+  }
+  miniMapMarkersGroup = L.featureGroup();
+  
+  // ✅ Filter: TAMPILKAN SEMUA RISIKO yang punya koordinat valid
+  const allMarkers = dashboardData.filter(d => 
+    d._raw?.lokasi_lat && 
+    d._raw?.lokasi_lng &&
+    !isNaN(parseFloat(d._raw.lokasi_lat)) &&
+    !isNaN(parseFloat(d._raw.lokasi_lng))
+  );
+  
+  // Warna marker berdasarkan risiko
+  const riskColors = {
+    'Kritis': '#991b1b',
+    'Tinggi': '#dc2626',
+    'Sedang': '#eab308',
+    'Rendah': '#22c55e'
+  };
+  
+  allMarkers.forEach(d => {
+    const lat = parseFloat(d._raw.lokasi_lat);
+    const lng = parseFloat(d._raw.lokasi_lng);
+    const risk = d.risiko || 'Sedang';
+    
+    if (isNaN(lat) || isNaN(lng)) return;
+    
+    const marker = L.circleMarker([lat, lng], {
+      radius: 6,
+      fillColor: riskColors[risk] || '#eab308',
+      color: '#fff',
+      weight: 2,
+      fillOpacity: 0.9
+    }).bindPopup(`
+      <strong>${d.judul}</strong><br>
+      ${d.kec}<br>
+      <span style="color:${riskColors[risk]}">${risk}</span>
+    `);
+    
+    // Optional: klik marker buka detail
+    marker.on('click', () => {
+      if (typeof viewReportDetail === 'function') {
+        viewReportDetail(d.id);
       }
     });
     
-    window.miniMapInstance = miniMap;
-    
-  } catch (err) {
-    console.warn('⚠️ Mini map init failed:', err);
+    miniMapMarkersGroup.addLayer(marker);
+  });
+  
+  // Tambahkan group ke map
+  miniMapInstance.addLayer(miniMapMarkersGroup);
+  
+  // ✅ Auto-fit bounds jika ada marker
+  if (miniMapMarkersGroup.getLayers().length > 0) {
+    miniMapInstance.fitBounds(miniMapMarkersGroup.getBounds().pad(0.3));
   }
+  
+  console.log(`✅ Mini map: ${miniMapMarkersGroup.getLayers().length} markers displayed (all risks)`);
 }
 
 // ==========================================
@@ -594,12 +665,10 @@ function setupDashboardModal() {
   btnCloseX?.addEventListener('click', closeModal);
   btnCloseFooter?.addEventListener('click', closeModal);
   
-  // Klik di overlay juga menutup modal
   modal?.addEventListener('click', (e) => {
     if (e.target === modal) closeModal();
   });
   
-  // Escape key juga menutup modal
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && modal?.classList.contains('d-none') === false) {
       closeModal();
@@ -607,8 +676,45 @@ function setupDashboardModal() {
   });
 }
 
-// Panggil di DOMContentLoaded
-document.addEventListener('DOMContentLoaded', async () => {
-  // ... kode existing ...
-  setupDashboardModal(); // ✅ Tambahkan ini
-});
+// ==========================================
+// 🔄 REAL-TIME SUBSCRIPTION (Opsional)
+// ==========================================
+function setupRealtimeSubscription() {
+  if (!window.sbClient?.channel) {
+    console.warn('⚠️ Realtime not available');
+    return;
+  }
+  
+  const user = JSON.parse(localStorage.getItem('sipandai_user') || '{}');
+  
+  window.sbClient
+    .channel('public:conflict_reports')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'conflict_reports'
+    }, async (payload) => {
+      if (DEBUG) console.log('🔄 Realtime dashboard update:', payload.eventType);
+      
+      showLoadingState();
+      await fetchDashboardData(currentFilters);
+      renderStats(dashboardData);
+      await initCharts(dashboardData);
+      renderRecentTable(dashboardData);
+      updateEarlyWarning(dashboardData);
+      updateMiniMapMarkers(); // ✅ Update mini map juga
+      
+      const messages = {
+        'INSERT': '🆕 Laporan baru masuk',
+        'UPDATE': '🔄 Data diperbarui',
+        'DELETE': '🗑️ Data dihapus'
+      };
+      window.app?.showToast?.(messages[payload.eventType] || '📊 Data diperbarui', 'info');
+    })
+    .subscribe((status) => {
+      if (DEBUG) console.log('📡 Realtime subscription status:', status);
+    });
+}
+
+// Uncomment baris berikut jika ingin fitur real-time aktif:
+// setupRealtimeSubscription();
